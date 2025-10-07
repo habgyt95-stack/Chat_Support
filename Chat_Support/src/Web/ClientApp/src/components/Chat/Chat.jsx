@@ -4,11 +4,11 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 import { Container, Row, Col, Spinner, Alert, Button } from "react-bootstrap";
 
-import { PeopleFill, Trash, ChatSquareText } from "react-bootstrap-icons";
+import { PeopleFill, Trash, ChatSquareText, BellSlash, BellFill } from "react-bootstrap-icons";
 
 import { useChat } from "../../hooks/useChat";
 import { chatApi } from "../../services/chatApi";
-import { getUserIdFromToken, parseJwt } from "../../utils/jwt";
+import { getUserIdFromToken, parseJwt } from "../../Utils/jwt";
 
 import { FaArrowRight } from "react-icons/fa6";
 
@@ -287,6 +287,23 @@ const Chat = () => {
   };
 
   // کد جدید (بعد از تغییر)
+  const handleToggleMute = async () => {
+    if (!currentRoom) return;
+
+    try {
+      const newMutedState = !currentRoom.isMuted;
+      await chatApi.toggleChatRoomMute(currentRoom.id, newMutedState);
+      
+      // به‌روزرسانی state محلی
+      setCurrentRoom({ ...currentRoom, isMuted: newMutedState });
+      
+      // به‌روزرسانی لیست چت‌ها
+      await loadRooms(false);
+    } catch (error) {
+      console.error("Error toggling mute:", error);
+    }
+  };
+
   const handleDeleteChat = async () => {
     if (!selectedRoom) return;
 
@@ -424,6 +441,15 @@ const Chat = () => {
       </div>
 
       <div className="d-flex align-items-center gap-2">
+        <Button
+          variant="light"
+          onClick={handleToggleMute}
+          className="rounded-circle p-2"
+          title={currentRoom?.isMuted ? "فعال کردن نوتیفیکیشن" : "غیرفعال کردن نوتیفیکیشن"}
+        >
+          {currentRoom?.isMuted ? <BellSlash size={20} /> : <BellFill size={20} />}
+        </Button>
+
         {selectedRoom?.isGroup && (
           <Button
             variant="light"

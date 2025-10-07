@@ -1,11 +1,12 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {Check2, Check2All, Clock, Reply, Pencil, Forward, Trash, EmojiSmile, Download} from 'react-bootstrap-icons';
+import {Check2, Check2All, Clock, Reply, Pencil, Forward, Trash, EmojiSmile, Download, Eye} from 'react-bootstrap-icons';
 import {MessageDeliveryStatus} from '../../types/chat';
 import {useChat} from '../../hooks/useChat';
-import {getUserIdFromToken} from '../../utils/jwt';
+import {getUserIdFromToken} from '../../Utils/jwt';
 import './Chat.css';
 import {downloadFile} from '../../Utils/fileUtils';
 import {VoiceMessagePlayer} from './VoiceRecorderComponent';
+import ReadReceiptsModal from './ReadReceiptsModal';
 
 const MENU_WIDTH = 180; // حداقل عرض منو از CSS
 const MENU_HEIGHT = 220;
@@ -45,6 +46,7 @@ const MessageItem = ({message, isGroupChat = false}) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [isHoveringMedia, setIsHoveringMedia] = useState(false);
+  const [showReadReceipts, setShowReadReceipts] = useState(false);
   const longPressTimer = useRef();
 
   const handleContextMenu = (e) => {
@@ -154,6 +156,10 @@ const MessageItem = ({message, isGroupChat = false}) => {
         console.error('Error deleting message:', error);
       }
     }
+  };
+
+  const handleShowReadReceipts = () => {
+    setShowReadReceipts(true);
   };
 
   const renderDeliveryStatus = () => {
@@ -321,6 +327,11 @@ const MessageItem = ({message, isGroupChat = false}) => {
               <li onClick={() => handleAction(handleForward)}>
                 <Forward /> هدایت
               </li>
+              {isGroupChat && (
+                <li onClick={() => handleAction(handleShowReadReceipts)}>
+                  <Eye /> خوانده شده توسط
+                </li>
+              )}
               {isOwnMessage && message.type === 0 && (
                 <li onClick={() => handleAction(handleEdit)}>
                   <Pencil /> ویرایش
@@ -349,6 +360,15 @@ const MessageItem = ({message, isGroupChat = false}) => {
         <div className="image-modal-overlay" onClick={() => setImageModalOpen(false)}>
           <img src={message.attachmentUrl} alt={message.content} className="image-modal-img" onClick={(e) => e.stopPropagation()} />
         </div>
+      )}
+
+      {/* Read Receipts Modal */}
+      {showReadReceipts && (
+        <ReadReceiptsModal
+          show={showReadReceipts}
+          onHide={() => setShowReadReceipts(false)}
+          messageId={message.id}
+        />
       )}
     </>
   );

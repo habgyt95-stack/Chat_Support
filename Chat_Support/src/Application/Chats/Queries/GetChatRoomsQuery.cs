@@ -57,6 +57,9 @@ public class GetChatRoomsQueryHandler : IRequestHandler<GetChatRoomsQuery, List<
             dto.UnreadCount = originalRoom.Messages
                 .Count(m => m.SenderId != userId && m.Id > (currentUserMembership?.LastReadMessageId ?? 0));
 
+            // تنظیم وضعیت Mute
+            dto.IsMuted = currentUserMembership?.IsMuted ?? false;
+
             // سفارشی‌سازی نام و آواتار برای چت‌های خصوصی
             if (!originalRoom.IsGroup && originalRoom.Members.Count >= 2)
             {

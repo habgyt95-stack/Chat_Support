@@ -190,6 +190,21 @@ export const chatApi = {
     return response.data;
   },
 
+  toggleChatRoomMute: async (roomId, isMuted) => {
+    const response = await apiClient.put(
+      `${CHAT_BASE_URL}/rooms/${roomId}/mute`,
+      { isMuted }
+    );
+    return response.data;
+  },
+
+  getMessageReadReceipts: async (messageId) => {
+    const response = await apiClient.get(
+      `${CHAT_BASE_URL}/messages/${messageId}/read-receipts`
+    );
+    return response.data;
+  },
+
   // Support API
   getSupportTickets: async () => {
     const response = await apiClient.get(`${SUPPORT_BASE_URL}/tickets`);
@@ -219,6 +234,26 @@ export const chatApi = {
   getIsAgent: async () => {
     const response = await apiClient.get(`${SUPPORT_BASE_URL}/is-agent`);
     return response.data; // { isAgent: boolean }
+  },
+  // Agent Management APIs
+  getAllAgents: async () => {
+    const response = await apiClient.get(`${SUPPORT_BASE_URL}/agents`);
+    return response.data;
+  },
+  createAgent: async (userId, maxConcurrentChats = 5) => {
+    const response = await apiClient.post(`${SUPPORT_BASE_URL}/agents`, {
+      userId,
+      maxConcurrentChats,
+    });
+    return response.data;
+  },
+  updateAgent: async (agentId, updates) => {
+    const response = await apiClient.put(`${SUPPORT_BASE_URL}/agents/${agentId}`, updates);
+    return response.data;
+  },
+  deleteAgent: async (agentId) => {
+    const response = await apiClient.delete(`${SUPPORT_BASE_URL}/agents/${agentId}`);
+    return response.data;
   },
 };
 

@@ -36,6 +36,7 @@ public class Chat : EndpointGroupBase
         chatApi.MapDelete("/messages/{messageId:int}", DeleteMessage).WithName("DeleteChatMessage").RequireAuthorization();
         chatApi.MapPost("/messages/{messageId:int}/react", ReactToMessage).WithName("ReactToChatMessage").RequireAuthorization();
         chatApi.MapPost("/messages/forward", ForwardMessage).WithName("ForwardChatMessage").RequireAuthorization();
+        chatApi.MapGet("/messages/{messageId:int}/read-receipts", GetMessageReadReceipts).RequireAuthorization();
 
         // User endpoints
         chatApi.MapGet("/users/online", GetOnlineUsers).RequireAuthorization();
@@ -54,6 +55,7 @@ public class Chat : EndpointGroupBase
         chatApi.MapDelete("/rooms/{roomId:int}/members/{userId}", RemoveGroupMember).RequireAuthorization();
         chatApi.MapDelete("/rooms/{roomId:int}", DeleteChatRoom).RequireAuthorization();
         chatApi.MapPut("/rooms/{roomId:int}/soft-delete", SoftDeletePersonalChat).RequireAuthorization();
+        chatApi.MapPut("/rooms/{roomId:int}/mute", ToggleChatRoomMute).RequireAuthorization();
     }
 
     [IgnoreAntiforgeryToken]
@@ -450,4 +452,27 @@ public class Chat : EndpointGroupBase
     public record ReactRequest(string Emoji);
 
     public record ForwardMessageRequest(int OriginalMessageId, int TargetChatRoomId);
+
+    private static async Task<IResult> ToggleChatRoomMute(
+        int roomId,
+        ToggleMuteRequest request,
+        IUser user,
+        ISender sender)
+    {
+        var command = new ToggleChatRoomMuteCommand(roomId, user.Id, request.IsMuted);
+        var result = await sender.Send(command);
+
+        return result ? Results.Ok(new { success = true, isMuted = request.IsMuted }) : Results.NotFound();
+    }
+
+    public record ToggleMuteRequest(bool IsMuted);
+
+    private static async Task<IResult> GetMessageReadReceipts(
+        int messageId,
+        ISender sender)
+    {
+        var query = new GetMessageReadReceiptsQuery(messageId);
+        var receipts = await sender.Send(query);
+        return Results.Ok(receipts);
+    }
 }

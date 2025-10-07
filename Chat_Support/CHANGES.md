@@ -130,13 +130,26 @@
 
 ## ⏳ موارد باقی‌مانده (نیاز به پیاده‌سازی بیشتر)
 
-### 4. سایلنت کردن نوتیفیکیشن برای هر گروه
+### 4. سایلنت کردن نوتیفیکیشن برای هر گروه ✔️
 
-**آنچه نیاز است**:
-- افزودن فیلد `IsMuted` به جدول `ChatRoomMember`
-- API endpoint برای toggle کردن mute
-- UI در frontend برای فعال/غیرفعال کردن نوتیف هر گروه
-- فیلتر کردن نوتیفیکیشن‌ها بر اساس وضعیت mute
+**پیاده‌سازی شده**:
+- ✅ فیلد `IsMuted` در جدول `ChatRoomMember` از قبل موجود بود
+- ✅ API endpoint برای toggle کردن mute (`PUT /api/chat/rooms/{roomId}/mute`)
+- ✅ Command جدید: `ToggleChatRoomMuteCommand`
+- ✅ افزودن فیلد `IsMuted` به `ChatRoomDto` و بازگرداندن آن در `GetChatRoomsQuery`
+- ✅ UI در frontend برای فعال/غیرفعال کردن نوتیف:
+  - دکمه toggle mute در header چت (آیکن زنگ/زنگ خاموش)
+  - نمایش آیکن `BellSlash` در لیست چت‌ها برای گروه‌های mute شده
+- ✅ فیلتر کردن نوتیفیکیشن‌ها بر اساس وضعیت mute در سمت سرور
+
+**فایل‌های اضافه/تغییر یافته**:
+- `src/Application/Chats/Commands/ToggleChatRoomMuteCommand.cs` (جدید)
+- `src/Web/Endpoints/Chat.cs` (اضافه شدن endpoint)
+- `src/Application/Chats/DTOs/ChatRoomDto.cs` (افزودن فیلد IsMuted)
+- `src/Application/Chats/Queries/GetChatRoomsQuery.cs` (تنظیم IsMuted)
+- `src/Web/ClientApp/src/services/chatApi.js` (اضافه شدن toggleChatRoomMute)
+- `src/Web/ClientApp/src/components/Chat/Chat.jsx` (دکمه toggle و handler)
+- `src/Web/ClientApp/src/components/Chat/ChatRoomList.jsx` (نمایش آیکن mute)
 
 ### 5. نوتیفیکیشن برای کاربران در دو منطقه
 
@@ -144,12 +157,21 @@
 - بررسی و اصلاح منطق ارسال نوتیفیکیشن در `NewMessageNotifier`
 - اطمینان از اینکه برای هر منطقه‌ای که کاربر در آن عضو است، نوتیف ارسال شود
 
-### 6. مشاهده خوانده شدن پیام در گروه (Read Receipts)
+### 6. مشاهده خوانده شدن پیام در گروه (Read Receipts) ✔️
 
-**آنچه نیاز است**:
-- نمایش لیست کاربرانی که پیام را خوانده‌اند
-- UI مناسب برای نمایش (مثل Telegram)
-- Query کردن `MessageStatuses` برای هر پیام
+**پیاده‌سازی شده**:
+- ✅ Query جدید برای دریافت لیست کاربرانی که پیام را خوانده‌اند (`GetMessageReadReceiptsQuery`)
+- ✅ API endpoint جدید (`GET /api/chat/messages/{messageId}/read-receipts`)
+- ✅ کامپوننت `ReadReceiptsModal` برای نمایش لیست خوانندگان
+- ✅ منوی context در پیام‌های گروهی با گزینه "خوانده شده توسط"
+- ✅ نمایش آواتار، نام و زمان خواندن برای هر کاربر
+
+**فایل‌های اضافه/تغییر یافته**:
+- `src/Application/Chats/Queries/GetMessageReadReceiptsQuery.cs` (جدید)
+- `src/Web/Endpoints/Chat.cs` (اضافه شدن endpoint)
+- `src/Web/ClientApp/src/services/chatApi.js` (اضافه شدن getMessageReadReceipts)
+- `src/Web/ClientApp/src/components/Chat/ReadReceiptsModal.jsx` (جدید)
+- `src/Web/ClientApp/src/components/Chat/MessageItem.jsx` (افزودن منو و modal)
 
 ### 7. دانلود فایل در WebView
 
@@ -157,13 +179,23 @@
 - بررسی اینکه آیا مشکل از سمت سرور است یا اپلیکیشن Android
 - اگر از سمت سرور باشد، اضافه کردن header های مناسب برای دانلود
 
-### 12. رابط کاربری (Frontend) برای مدیریت پشتیبان‌ها
+### 12. رابط کاربری (Frontend) برای مدیریت پشتیبان‌ها ✔️
 
-**آنچه نیاز است**:
-- صفحه مدیریت پشتیبان‌ها در React
-- نمایش لیست پشتیبان‌ها با وضعیت آنلاین/آفلاین
-- فرم افزودن/ویرایش پشتیبان
-- نمایش آماری از تیکت‌های هر پشتیبان
+**پیاده‌سازی شده**:
+- ✅ صفحه مدیریت پشتیبان‌ها در React (`AgentManagement.jsx`)
+- ✅ نمایش لیست پشتیبان‌ها با وضعیت آنلاین/آفلاین
+- ✅ فرم افزودن پشتیبان جدید
+- ✅ فرم ویرایش پشتیبان (تغییر وضعیت فعال/غیرفعال، حداکثر چت همزمان)
+- ✅ قابلیت حذف پشتیبان
+- ✅ نمایش آماری از تیکت‌های هر پشتیبان (چت‌های فعال، بار کاری)
+- ✅ افزودن route در AppRouter برای دسترسی به صفحه
+- ✅ رفع مشکلات import path در فایل‌های موجود
+
+**فایل‌های اضافه/تغییر یافته**:
+- `src/Web/ClientApp/src/components/Chat/AgentManagement.jsx` (جدید)
+- `src/Web/ClientApp/src/services/chatApi.js` (اضافه شدن APIهای مدیریت پشتیبان)
+- `src/Web/ClientApp/src/AppRouter.jsx` (اضافه شدن route)
+- رفع مشکل import در `Chat.jsx`, `MessageItem.jsx`, `ChatContext.jsx`
 
 ---
 
@@ -249,9 +281,10 @@
 - [x] حذف پشتیبان
 - [x] انتقال تیکت هنگام آفلاین شدن پشتیبان
 - [x] تخصیص خودکار تیکت‌های در انتظار
-- [ ] نوتیف سایلنت برای گروه‌ها
+- [x] رابط کاربری (Frontend) مدیریت پشتیبان‌ها
+- [x] نوتیف سایلنت برای گروه‌ها
+- [x] مشاهده خوانده شدن پیام در گروه
 - [ ] نوتیف برای کاربران در دو منطقه
-- [ ] مشاهده خوانده شدن پیام در گروه
 - [ ] دانلود فایل در WebView
 
 ---
