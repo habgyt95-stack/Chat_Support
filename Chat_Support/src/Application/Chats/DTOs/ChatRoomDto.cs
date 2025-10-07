@@ -18,6 +18,7 @@ public class ChatRoomDto
     public DateTime? LastMessageTime { get; set; }
     public string? LastMessageSenderName { get; set; }
     public int MessageCount { get; set; }
+    public bool IsMuted { get; set; }
 
     // پروفایل مپینگ برای این DTO
     private class Mapping : Profile

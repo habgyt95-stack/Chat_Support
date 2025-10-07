@@ -19,6 +19,8 @@ import {
   ChevronDown,
   PeopleFill,
   Check,
+  BellSlash,
+  BellFill,
 } from "react-bootstrap-icons";
 import { useChat } from "../../hooks/useChat";
 import { chatApi } from "../../services/chatApi";
@@ -304,11 +306,16 @@ const ChatRoomList = ({
             <small className="text-muted text-truncate">
               {room.lastMessageContent || room.description || ""}
             </small>
-            {room.unreadCount > 0 && (
-              <Badge className="unread-badge" pill>
-                {room.unreadCount > 9 ? "9+" : room.unreadCount}
-              </Badge>
-            )}
+            <div className="d-flex align-items-center gap-1">
+              {room.isMuted && (
+                <BellSlash className="text-muted" size={14} title="نوتیفیکیشن غیرفعال" />
+              )}
+              {room.unreadCount > 0 && (
+                <Badge className="unread-badge" pill>
+                  {room.unreadCount > 9 ? "9+" : room.unreadCount}
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </ListGroup.Item>

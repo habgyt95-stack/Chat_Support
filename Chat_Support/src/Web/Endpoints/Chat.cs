@@ -54,6 +54,7 @@ public class Chat : EndpointGroupBase
         chatApi.MapDelete("/rooms/{roomId:int}/members/{userId}", RemoveGroupMember).RequireAuthorization();
         chatApi.MapDelete("/rooms/{roomId:int}", DeleteChatRoom).RequireAuthorization();
         chatApi.MapPut("/rooms/{roomId:int}/soft-delete", SoftDeletePersonalChat).RequireAuthorization();
+        chatApi.MapPut("/rooms/{roomId:int}/mute", ToggleChatRoomMute).RequireAuthorization();
     }
 
     [IgnoreAntiforgeryToken]
@@ -450,4 +451,18 @@ public class Chat : EndpointGroupBase
     public record ReactRequest(string Emoji);
 
     public record ForwardMessageRequest(int OriginalMessageId, int TargetChatRoomId);
+
+    private static async Task<IResult> ToggleChatRoomMute(
+        int roomId,
+        ToggleMuteRequest request,
+        IUser user,
+        ISender sender)
+    {
+        var command = new ToggleChatRoomMuteCommand(roomId, user.Id, request.IsMuted);
+        var result = await sender.Send(command);
+
+        return result ? Results.Ok(new { success = true, isMuted = request.IsMuted }) : Results.NotFound();
+    }
+
+    public record ToggleMuteRequest(bool IsMuted);
 }

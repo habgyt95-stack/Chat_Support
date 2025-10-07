@@ -190,6 +190,14 @@ export const chatApi = {
     return response.data;
   },
 
+  toggleChatRoomMute: async (roomId, isMuted) => {
+    const response = await apiClient.put(
+      `${CHAT_BASE_URL}/rooms/${roomId}/mute`,
+      { isMuted }
+    );
+    return response.data;
+  },
+
   // Support API
   getSupportTickets: async () => {
     const response = await apiClient.get(`${SUPPORT_BASE_URL}/tickets`);
