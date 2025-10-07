@@ -49,6 +49,7 @@ public class Chat : EndpointGroupBase
             .Accepts<IFormFile>("multipart/form-data");
 
         // Group management endpoints
+        chatApi.MapPut("/rooms/{roomId:int}", UpdateChatRoom).RequireAuthorization();
         chatApi.MapPost("/rooms/{roomId:int}/members/add", AddGroupMember).RequireAuthorization();
         chatApi.MapDelete("/rooms/{roomId:int}/members/{userId}", RemoveGroupMember).RequireAuthorization();
         chatApi.MapDelete("/rooms/{roomId:int}", DeleteChatRoom).RequireAuthorization();
@@ -392,6 +393,16 @@ public class Chat : EndpointGroupBase
         return Results.Ok(new { Success = result });
     }
 
+    private static async Task<IResult> UpdateChatRoom(
+        int roomId,
+        UpdateChatRoomRequest request,
+        IMediator mediator)
+    {
+        var command = new UpdateChatRoomCommand(roomId, request.Name, request.Description);
+        var result = await mediator.Send(command);
+        return Results.Ok(result);
+    }
+
     private static async Task<IResult> DeleteChatRoom(
         int roomId,
         IMediator mediator)
@@ -420,6 +431,11 @@ public class Chat : EndpointGroupBase
         bool IsGroup,
         List<int>? MemberIds = null,
         int? RegionId = null
+    );
+
+    public record UpdateChatRoomRequest(
+        string? Name = null,
+        string? Description = null
     );
 
     public record SendMessageRequest(

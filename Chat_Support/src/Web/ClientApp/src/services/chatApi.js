@@ -173,6 +173,11 @@ export const chatApi = {
     return response.data;
   },
 
+  updateChatRoom: async (roomId, updateData) => {
+    const response = await apiClient.put(`${CHAT_BASE_URL}/rooms/${roomId}`, updateData);
+    return response.data;
+  },
+
   deleteChatRoom: async (roomId) => {
     const response = await apiClient.delete(`${CHAT_BASE_URL}/rooms/${roomId}`);
     return response.data;
