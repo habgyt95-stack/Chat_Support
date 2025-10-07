@@ -8,7 +8,7 @@ import { PeopleFill, Trash, ChatSquareText } from "react-bootstrap-icons";
 
 import { useChat } from "../../hooks/useChat";
 import { chatApi } from "../../services/chatApi";
-import { getUserIdFromToken, parseJwt } from "../../utils/jwt";
+import { getUserIdFromToken, parseJwt } from "../../Utils/jwt";
 
 import { FaArrowRight } from "react-icons/fa6";
 

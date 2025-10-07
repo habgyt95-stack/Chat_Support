@@ -2,7 +2,7 @@ import React, {useState, useEffect, useRef} from 'react';
 import {Check2, Check2All, Clock, Reply, Pencil, Forward, Trash, EmojiSmile, Download} from 'react-bootstrap-icons';
 import {MessageDeliveryStatus} from '../../types/chat';
 import {useChat} from '../../hooks/useChat';
-import {getUserIdFromToken} from '../../utils/jwt';
+import {getUserIdFromToken} from '../../Utils/jwt';
 import './Chat.css';
 import {downloadFile} from '../../Utils/fileUtils';
 import {VoiceMessagePlayer} from './VoiceRecorderComponent';

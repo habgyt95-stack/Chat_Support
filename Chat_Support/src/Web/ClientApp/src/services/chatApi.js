@@ -220,6 +220,26 @@ export const chatApi = {
     const response = await apiClient.get(`${SUPPORT_BASE_URL}/is-agent`);
     return response.data; // { isAgent: boolean }
   },
+  // Agent Management APIs
+  getAllAgents: async () => {
+    const response = await apiClient.get(`${SUPPORT_BASE_URL}/agents`);
+    return response.data;
+  },
+  createAgent: async (userId, maxConcurrentChats = 5) => {
+    const response = await apiClient.post(`${SUPPORT_BASE_URL}/agents`, {
+      userId,
+      maxConcurrentChats,
+    });
+    return response.data;
+  },
+  updateAgent: async (agentId, updates) => {
+    const response = await apiClient.put(`${SUPPORT_BASE_URL}/agents/${agentId}`, updates);
+    return response.data;
+  },
+  deleteAgent: async (agentId) => {
+    const response = await apiClient.delete(`${SUPPORT_BASE_URL}/agents/${agentId}`);
+    return response.data;
+  },
 };
 
 // Helper functions for file handling

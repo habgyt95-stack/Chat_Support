@@ -2,7 +2,7 @@ import React, { useReducer, useEffect, useCallback } from "react";
 import { chatApi } from "../services/chatApi";
 import signalRService from "../services/signalRService";
 import { MessageType, ReadStatus } from "../types/chat";
-import { getUserIdFromToken } from "../utils/jwt";
+import { getUserIdFromToken } from "../Utils/jwt";
 import {
   ChatContext,
   ActionTypes,
