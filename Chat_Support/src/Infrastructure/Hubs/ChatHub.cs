@@ -93,7 +93,7 @@ public class ChatHub : Hub
             {
                 var typingDto = new TypingIndicatorDto(
                     userId,
-                    $" {user.FirstName} {user.LastName}",
+                    $"{user.FirstName} {user.LastName}",
                     roomIdWhenDisconnected,
                     false
                 );
@@ -134,7 +134,7 @@ public class ChatHub : Hub
         {
             if (previousRoomId != roomId)
             {
-                var previousTypingDto = new TypingIndicatorDto(userId, $" {user.FirstName} {user.LastName}", previousRoomId, false);
+                var previousTypingDto = new TypingIndicatorDto(userId, $"{user.FirstName} {user.LastName}", previousRoomId, false);
                 await Clients.Group(previousRoomId.ToString()).SendAsync("UserTyping", previousTypingDto);
             }
         }
@@ -145,7 +145,7 @@ public class ChatHub : Hub
 
         var typingDto = new TypingIndicatorDto(
             userId,
-            $" {user.FirstName} {user.LastName}",
+            $"{user.FirstName} {user.LastName}",
             roomId,
             true
         );
@@ -171,7 +171,7 @@ public class ChatHub : Hub
                     if (user != null)
                     {
                         _logger.LogTrace("StopTyping(explicit): UserId={UserId} ConnectionId={ConnectionId} RoomId={RoomId}", userId, Context.ConnectionId, roomIdFromParam);
-                        var typingDto = new TypingIndicatorDto(userId, $" {user.FirstName} {user.LastName}", roomIdFromParam, false);
+                        var typingDto = new TypingIndicatorDto(userId, $"{user.FirstName} {user.LastName}", roomIdFromParam, false);
                         await Clients.GroupExcept(roomIdFromParam.ToString(), Context.ConnectionId)
                             .SendAsync("UserTyping", typingDto);
                     }
@@ -186,7 +186,7 @@ public class ChatHub : Hub
                 if (user != null)
                 {
                     _logger.LogTrace("StopTyping(implicit): UserId={UserId} ConnectionId={ConnectionId} RoomId={RoomId}", userId, Context.ConnectionId, currentTypingRoomId);
-                    var typingDto = new TypingIndicatorDto(userId, $" {user.FirstName} {user.LastName}", currentTypingRoomId, false);
+                    var typingDto = new TypingIndicatorDto(userId, $"{user.FirstName} {user.LastName}", currentTypingRoomId, false);
 
                     await Clients.Group(currentTypingRoomId.ToString()).SendAsync("UserTyping", typingDto);
                 }

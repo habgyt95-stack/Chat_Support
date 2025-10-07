@@ -2,6 +2,7 @@
 using Chat_Support.Application.Chats.DTOs;
 using Chat_Support.Application.Common.Interfaces;
 using Chat_Support.Application.Support.Commands;
+using Chat_Support.Application.Support.Queries;
 using Chat_Support.Domain.Entities;
 using Chat_Support.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
@@ -62,6 +63,19 @@ public class Support : EndpointGroupBase
         // New: check if current user is an agent (by DB lookup)
         group.MapGet("/is-agent", IsCurrentUserAgent)
             .RequireAuthorization();
+
+        // Agent Management endpoints (admin only)
+        group.MapGet("/agents", GetAllAgents)
+            .RequireAuthorization(); // TODO: Add admin policy
+
+        group.MapPost("/agents", CreateAgent)
+            .RequireAuthorization(); // TODO: Add admin policy
+
+        group.MapPut("/agents/{agentId}", UpdateAgent)
+            .RequireAuthorization(); // TODO: Add admin policy
+
+        group.MapDelete("/agents/{agentId}", DeleteAgent)
+            .RequireAuthorization(); // TODO: Add admin policy
     }
 
     private static Task<IResult> CheckSupportAuth(HttpContext context)
@@ -498,4 +512,43 @@ public class Support : EndpointGroupBase
 
     public record GuestAuthRequest(string Name, string Phone);
     public record GuestAuthResult(string SessionId, string Name, string Phone);
+
+    public record CreateAgentRequest(int UserId, int MaxConcurrentChats = 5);
+    public record UpdateAgentRequest(bool? IsActive = null, int? MaxConcurrentChats = null);
+
+    // Agent Management endpoint implementations
+    private static async Task<IResult> GetAllAgents(IMediator mediator)
+    {
+        var query = new GetAllAgentsQuery();
+        var result = await mediator.Send(query);
+        return Results.Ok(result);
+    }
+
+    private static async Task<IResult> CreateAgent(
+        CreateAgentRequest request,
+        IMediator mediator)
+    {
+        var command = new CreateSupportAgentCommand(request.UserId, request.MaxConcurrentChats);
+        var agentId = await mediator.Send(command);
+        return Results.Ok(new { AgentId = agentId });
+    }
+
+    private static async Task<IResult> UpdateAgent(
+        int agentId,
+        UpdateAgentRequest request,
+        IMediator mediator)
+    {
+        var command = new UpdateSupportAgentCommand(agentId, request.IsActive, request.MaxConcurrentChats);
+        var success = await mediator.Send(command);
+        return success ? Results.Ok(new { Success = true }) : Results.NotFound();
+    }
+
+    private static async Task<IResult> DeleteAgent(
+        int agentId,
+        IMediator mediator)
+    {
+        var command = new DeleteSupportAgentCommand(agentId);
+        var success = await mediator.Send(command);
+        return success ? Results.Ok(new { Success = true }) : Results.NotFound();
+    }
 }

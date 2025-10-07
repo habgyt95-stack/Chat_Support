@@ -273,26 +273,26 @@ function chatReducer(state, action) {
 
     case ActionTypes.MARK_ALL_MESSAGES_AS_READ_IN_ROOM: {
       const { roomId, userId } = action.payload;
-      if (!roomId || !state.messages[roomId]) return state;
+      if (!roomId) return state;
 
-      let unreadCountChanged = false;
-      const updatedMessages = state.messages[roomId].items.map((msg) => {
-        if (Number(msg.senderId) !== Number(userId) && !msg.isReadByMe) {
-          unreadCountChanged = true;
-          return { ...msg, isReadByMe: true };
-        }
-        return msg;
-      });
+      let updatedMessages = state.messages[roomId]?.items;
+      if (updatedMessages) {
+        updatedMessages = updatedMessages.map((msg) => {
+          if (Number(msg.senderId) !== Number(userId) && !msg.isReadByMe) {
+            return { ...msg, isReadByMe: true };
+          }
+          return msg;
+        });
+      }
 
-      const updatedRooms = unreadCountChanged
-        ? state.rooms
-            .map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r))
-            .sort((a, b) => new Date(b.lastMessageTime || b.createdAt) - new Date(a.lastMessageTime || a.createdAt))
-        : state.rooms;
+      // Always update the room's unread count to 0 when marking as read
+      const updatedRooms = state.rooms
+        .map((r) => (r.id === roomId ? { ...r, unreadCount: 0 } : r))
+        .sort((a, b) => new Date(b.lastMessageTime || b.createdAt) - new Date(a.lastMessageTime || a.createdAt));
 
       return {
         ...state,
-        messages: { ...state.messages, [roomId]: { ...state.messages[roomId], items: updatedMessages } },
+        messages: updatedMessages ? { ...state.messages, [roomId]: { ...state.messages[roomId], items: updatedMessages } } : state.messages,
         rooms: updatedRooms,
       };
     }
@@ -576,15 +576,18 @@ export const ChatProvider = ({ children }) => {
   // Actions
   const markAllMessagesAsReadInRoom = useCallback(
     (roomId) => {
-      if (!roomId || !state.messages[roomId]?.items) return;
+      if (!roomId) return;
 
+      // Update local state immediately to provide instant feedback
+      dispatch({ type: ActionTypes.MARK_ALL_MESSAGES_AS_READ_IN_ROOM, payload: { roomId, userId: state.currentLoggedInUserId } });
+      
+      // Then sync with server
       if (signalRService.getConnectionStatus()) {
-        // Only MarkRoomAsRead to avoid advancing LastReadMessageId prematurely
+        // Only MarkRoomAsRead to let server mark ALL unread messages atomically
         signalRService.markRoomAsRead(roomId.toString());
       }
-      dispatch({ type: ActionTypes.MARK_ALL_MESSAGES_AS_READ_IN_ROOM, payload: { roomId, userId: state.currentLoggedInUserId } });
     },
-    [state.messages, state.currentLoggedInUserId]
+    [state.currentLoggedInUserId]
   );
 
   const loadRooms = useCallback(async () => {

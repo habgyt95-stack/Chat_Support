@@ -13,6 +13,8 @@ const GroupManagementModal = ({show, onHide, chatRoom, currentUserId, onGroupUpd
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
 
   const isOwner = members.find((m) => m.id === currentUserId)?.role === 2; // 2: Owner role
 
@@ -24,6 +26,8 @@ const GroupManagementModal = ({show, onHide, chatRoom, currentUserId, onGroupUpd
       setSearchQuery('');
       setSearchResults([]);
       setSelectedUsers([]);
+      setEditName(chatRoom.name || '');
+      setEditDescription(chatRoom.description || '');
     }
   }, [show, chatRoom]);
 
@@ -144,6 +148,22 @@ const GroupManagementModal = ({show, onHide, chatRoom, currentUserId, onGroupUpd
       onHide();
     } catch (err) {
       setError('خطا در ترک گروه');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateGroupInfo = async () => {
+    try {
+      setIsLoading(true);
+      await chatApi.updateChatRoom(chatRoom.id, {
+        name: editName || undefined,
+        description: editDescription || undefined
+      });
+      setError('');
+      onGroupUpdated();
+    } catch (err) {
+      setError('خطا در به‌روزرسانی اطلاعات گروه');
     } finally {
       setIsLoading(false);
     }
@@ -296,6 +316,42 @@ const GroupManagementModal = ({show, onHide, chatRoom, currentUserId, onGroupUpd
 
               <Button variant="success" onClick={addMembers} disabled={isLoading || selectedUsers.length === 0} className="mt-2">
                 <PersonPlusFill /> افزودن {selectedUsers.length} عضو
+              </Button>
+            </Tab>
+          )}
+
+          {(isOwner || members.find((m) => m.id === currentUserId)?.role === 1) && (
+            <Tab
+              eventKey="edit"
+              title={
+                <>
+                  <GearFill className="me-1" /> ویرایش گروه
+                </>
+              }
+            >
+              <Form.Group className="mb-3">
+                <Form.Label>نام گروه</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="نام گروه را وارد کنید..."
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>توضیحات گروه</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="توضیحات گروه را وارد کنید..."
+                />
+              </Form.Group>
+
+              <Button variant="primary" onClick={updateGroupInfo} disabled={isLoading || !editName.trim()}>
+                ذخیره تغییرات
               </Button>
             </Tab>
           )}

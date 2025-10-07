@@ -92,28 +92,87 @@ public class AgentAssignmentService : IAgentAssignmentService
         var agent = await _context.SupportAgents.FirstOrDefaultAsync(a => a.UserId == agentId, cancellationToken);
         if (agent != null)
         {
+            var previousStatus = agent.AgentStatus;
             agent.AgentStatus = status;
+            agent.LastActivityAt = DateTime.Now;
 
             if (status is AgentStatus.Offline or AgentStatus.Away)
             {
                 // انتقال چت های فعال به Agent های دیگر
                 var activeTickets = await _context.SupportTickets
+                    .Include(t => t.ChatRoom)
                     .Where(t => t.AssignedAgentUserId == agentId
                         && (t.Status == SupportTicketStatus.Open || t.Status == SupportTicketStatus.InProgress))
                     .ToListAsync(cancellationToken);
 
                 foreach (var ticket in activeTickets)
                 {
-                    var newAgent = await GetBestAvailableAgentAsync(cancellationToken);
+                    // Try to find agent in the same region first
+                    var newAgent = await GetBestAvailableAgentAsync(ticket.RegionId, cancellationToken);
+                    
                     if (newAgent != null)
                     {
+                        var oldAgentId = ticket.AssignedAgentUserId;
                         ticket.AssignedAgentUserId = newAgent.UserId;
-                        ticket.Status = SupportTicketStatus.Transferred;
+                        // Keep status as InProgress instead of Transferred
+                        if (ticket.Status == SupportTicketStatus.Open)
+                            ticket.Status = SupportTicketStatus.InProgress;
 
-                        // Add system message
+                        // Add system message in Persian
                         var systemMessage = new ChatMessage
                         {
-                            Content = "Your chat has been transferred to another agent.",
+                            Content = "چت شما به پشتیبان دیگری منتقل شد. لطفاً منتظر بمانید.",
+                            ChatRoomId = ticket.ChatRoomId,
+                            Type = MessageType.System
+                        };
+                        _context.ChatMessages.Add(systemMessage);
+                    }
+                    else
+                    {
+                        // No available agent - add message that support will respond when available
+                        var systemMessage = new ChatMessage
+                        {
+                            Content = "در حال حاضر پشتیبانی آنلاین در دسترس نیست. به محض ورود پشتیبان، به شما پاسخ داده خواهد شد.",
+                            ChatRoomId = ticket.ChatRoomId,
+                            Type = MessageType.System
+                        };
+                        _context.ChatMessages.Add(systemMessage);
+                        
+                        // Set ticket to Open so it can be picked up by next available agent
+                        ticket.Status = SupportTicketStatus.Open;
+                        ticket.AssignedAgentUserId = null;
+                    }
+                }
+
+                // Decrement agent's active chat count
+                agent.CurrentActiveChats = 0;
+            }
+            else if (status == AgentStatus.Available && previousStatus != AgentStatus.Available)
+            {
+                // Agent just came online - assign any pending tickets
+                var pendingTickets = await _context.SupportTickets
+                    .Where(t => t.AssignedAgentUserId == null 
+                        && t.Status == SupportTicketStatus.Open
+                        && t.RegionId == null || 
+                        _context.KciUsers
+                            .Where(u => u.Id == agentId && 
+                                (u.RegionId == t.RegionId || u.UserRegions.Any(ur => ur.RegionId == t.RegionId)))
+                            .Any())
+                    .OrderBy(t => t.Created)
+                    .Take(agent.MaxConcurrentChats)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var ticket in pendingTickets)
+                {
+                    if (agent.CurrentActiveChats < agent.MaxConcurrentChats)
+                    {
+                        ticket.AssignedAgentUserId = agentId;
+                        ticket.Status = SupportTicketStatus.InProgress;
+                        agent.CurrentActiveChats++;
+                        
+                        var systemMessage = new ChatMessage
+                        {
+                            Content = "پشتیبان به چت متصل شد.",
                             ChatRoomId = ticket.ChatRoomId,
                             Type = MessageType.System
                         };
