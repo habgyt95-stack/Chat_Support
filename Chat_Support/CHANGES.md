@@ -157,12 +157,21 @@
 - بررسی و اصلاح منطق ارسال نوتیفیکیشن در `NewMessageNotifier`
 - اطمینان از اینکه برای هر منطقه‌ای که کاربر در آن عضو است، نوتیف ارسال شود
 
-### 6. مشاهده خوانده شدن پیام در گروه (Read Receipts)
+### 6. مشاهده خوانده شدن پیام در گروه (Read Receipts) ✔️
 
-**آنچه نیاز است**:
-- نمایش لیست کاربرانی که پیام را خوانده‌اند
-- UI مناسب برای نمایش (مثل Telegram)
-- Query کردن `MessageStatuses` برای هر پیام
+**پیاده‌سازی شده**:
+- ✅ Query جدید برای دریافت لیست کاربرانی که پیام را خوانده‌اند (`GetMessageReadReceiptsQuery`)
+- ✅ API endpoint جدید (`GET /api/chat/messages/{messageId}/read-receipts`)
+- ✅ کامپوننت `ReadReceiptsModal` برای نمایش لیست خوانندگان
+- ✅ منوی context در پیام‌های گروهی با گزینه "خوانده شده توسط"
+- ✅ نمایش آواتار، نام و زمان خواندن برای هر کاربر
+
+**فایل‌های اضافه/تغییر یافته**:
+- `src/Application/Chats/Queries/GetMessageReadReceiptsQuery.cs` (جدید)
+- `src/Web/Endpoints/Chat.cs` (اضافه شدن endpoint)
+- `src/Web/ClientApp/src/services/chatApi.js` (اضافه شدن getMessageReadReceipts)
+- `src/Web/ClientApp/src/components/Chat/ReadReceiptsModal.jsx` (جدید)
+- `src/Web/ClientApp/src/components/Chat/MessageItem.jsx` (افزودن منو و modal)
 
 ### 7. دانلود فایل در WebView
 
@@ -274,8 +283,8 @@
 - [x] تخصیص خودکار تیکت‌های در انتظار
 - [x] رابط کاربری (Frontend) مدیریت پشتیبان‌ها
 - [x] نوتیف سایلنت برای گروه‌ها
+- [x] مشاهده خوانده شدن پیام در گروه
 - [ ] نوتیف برای کاربران در دو منطقه
-- [ ] مشاهده خوانده شدن پیام در گروه
 - [ ] دانلود فایل در WebView
 
 ---

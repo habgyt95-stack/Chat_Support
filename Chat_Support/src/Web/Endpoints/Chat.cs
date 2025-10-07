@@ -36,6 +36,7 @@ public class Chat : EndpointGroupBase
         chatApi.MapDelete("/messages/{messageId:int}", DeleteMessage).WithName("DeleteChatMessage").RequireAuthorization();
         chatApi.MapPost("/messages/{messageId:int}/react", ReactToMessage).WithName("ReactToChatMessage").RequireAuthorization();
         chatApi.MapPost("/messages/forward", ForwardMessage).WithName("ForwardChatMessage").RequireAuthorization();
+        chatApi.MapGet("/messages/{messageId:int}/read-receipts", GetMessageReadReceipts).RequireAuthorization();
 
         // User endpoints
         chatApi.MapGet("/users/online", GetOnlineUsers).RequireAuthorization();
@@ -465,4 +466,13 @@ public class Chat : EndpointGroupBase
     }
 
     public record ToggleMuteRequest(bool IsMuted);
+
+    private static async Task<IResult> GetMessageReadReceipts(
+        int messageId,
+        ISender sender)
+    {
+        var query = new GetMessageReadReceiptsQuery(messageId);
+        var receipts = await sender.Send(query);
+        return Results.Ok(receipts);
+    }
 }

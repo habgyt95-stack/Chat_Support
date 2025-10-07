@@ -198,6 +198,13 @@ export const chatApi = {
     return response.data;
   },
 
+  getMessageReadReceipts: async (messageId) => {
+    const response = await apiClient.get(
+      `${CHAT_BASE_URL}/messages/${messageId}/read-receipts`
+    );
+    return response.data;
+  },
+
   // Support API
   getSupportTickets: async () => {
     const response = await apiClient.get(`${SUPPORT_BASE_URL}/tickets`);
