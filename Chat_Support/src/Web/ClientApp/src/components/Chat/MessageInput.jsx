@@ -218,13 +218,21 @@ const MessageInput = ({ roomId }) => {
     };
 
     // Callback for file upload component
-
     const onFileUploaded = async ({ url, name, type }) => {
+        // Prompt user for mandatory caption
+        const caption = prompt('لطفاً یک توضیح برای فایل وارد کنید (اجباری):', name);
+        
+        // If user cancels or enters empty caption, don't send
+        if (!caption || caption.trim() === '') {
+            alert('توضیح فایل اجباری است. فایل ارسال نشد.');
+            return;
+        }
+
         try {
             setIsSending(true);
 
             await sendMessage(roomId, {
-                content: name,
+                content: caption.trim(),
 
                 type,
 
