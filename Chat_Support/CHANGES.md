@@ -130,13 +130,26 @@
 
 ## ⏳ موارد باقی‌مانده (نیاز به پیاده‌سازی بیشتر)
 
-### 4. سایلنت کردن نوتیفیکیشن برای هر گروه
+### 4. سایلنت کردن نوتیفیکیشن برای هر گروه ✔️
 
-**آنچه نیاز است**:
-- افزودن فیلد `IsMuted` به جدول `ChatRoomMember`
-- API endpoint برای toggle کردن mute
-- UI در frontend برای فعال/غیرفعال کردن نوتیف هر گروه
-- فیلتر کردن نوتیفیکیشن‌ها بر اساس وضعیت mute
+**پیاده‌سازی شده**:
+- ✅ فیلد `IsMuted` در جدول `ChatRoomMember` از قبل موجود بود
+- ✅ API endpoint برای toggle کردن mute (`PUT /api/chat/rooms/{roomId}/mute`)
+- ✅ Command جدید: `ToggleChatRoomMuteCommand`
+- ✅ افزودن فیلد `IsMuted` به `ChatRoomDto` و بازگرداندن آن در `GetChatRoomsQuery`
+- ✅ UI در frontend برای فعال/غیرفعال کردن نوتیف:
+  - دکمه toggle mute در header چت (آیکن زنگ/زنگ خاموش)
+  - نمایش آیکن `BellSlash` در لیست چت‌ها برای گروه‌های mute شده
+- ✅ فیلتر کردن نوتیفیکیشن‌ها بر اساس وضعیت mute در سمت سرور
+
+**فایل‌های اضافه/تغییر یافته**:
+- `src/Application/Chats/Commands/ToggleChatRoomMuteCommand.cs` (جدید)
+- `src/Web/Endpoints/Chat.cs` (اضافه شدن endpoint)
+- `src/Application/Chats/DTOs/ChatRoomDto.cs` (افزودن فیلد IsMuted)
+- `src/Application/Chats/Queries/GetChatRoomsQuery.cs` (تنظیم IsMuted)
+- `src/Web/ClientApp/src/services/chatApi.js` (اضافه شدن toggleChatRoomMute)
+- `src/Web/ClientApp/src/components/Chat/Chat.jsx` (دکمه toggle و handler)
+- `src/Web/ClientApp/src/components/Chat/ChatRoomList.jsx` (نمایش آیکن mute)
 
 ### 5. نوتیفیکیشن برای کاربران در دو منطقه
 
@@ -260,7 +273,7 @@
 - [x] انتقال تیکت هنگام آفلاین شدن پشتیبان
 - [x] تخصیص خودکار تیکت‌های در انتظار
 - [x] رابط کاربری (Frontend) مدیریت پشتیبان‌ها
-- [ ] نوتیف سایلنت برای گروه‌ها
+- [x] نوتیف سایلنت برای گروه‌ها
 - [ ] نوتیف برای کاربران در دو منطقه
 - [ ] مشاهده خوانده شدن پیام در گروه
 - [ ] دانلود فایل در WebView
