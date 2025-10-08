@@ -151,11 +151,15 @@
 - `src/Web/ClientApp/src/components/Chat/Chat.jsx` (دکمه toggle و handler)
 - `src/Web/ClientApp/src/components/Chat/ChatRoomList.jsx` (نمایش آیکن mute)
 
-### 5. نوتیفیکیشن برای کاربران در دو منطقه
+### 5. نوتیفیکیشن برای کاربران در دو منطقه ✔️
 
-**آنچه نیاز است**:
-- بررسی و اصلاح منطق ارسال نوتیفیکیشن در `NewMessageNotifier`
-- اطمینان از اینکه برای هر منطقه‌ای که کاربر در آن عضو است، نوتیف ارسال شود
+**پیاده‌سازی شده**:
+- ✅ اصلاح منطق ارسال نوتیفیکیشن در `NewMessageNotifier`
+- ✅ فیلتر کردن کاربرانی که چت را mute کرده‌اند (IsMuted = true)
+- ✅ نوتیفیکیشن برای کاربران با IsMuted = false ارسال می‌شود
+
+**فایل‌های تغییر یافته**:
+- `src/Infrastructure/Service/NewMessageNotifier.cs` (اضافه شدن شرط !m.IsMuted)
 
 ### 6. مشاهده خوانده شدن پیام در گروه (Read Receipts) ✔️
 
@@ -173,11 +177,18 @@
 - `src/Web/ClientApp/src/components/Chat/ReadReceiptsModal.jsx` (جدید)
 - `src/Web/ClientApp/src/components/Chat/MessageItem.jsx` (افزودن منو و modal)
 
-### 7. دانلود فایل در WebView
+### 7. دانلود فایل در WebView ✔️
 
-**آنچه نیاز است**:
-- بررسی اینکه آیا مشکل از سمت سرور است یا اپلیکیشن Android
-- اگر از سمت سرور باشد، اضافه کردن header های مناسب برای دانلود
+**پیاده‌سازی شده**:
+- ✅ API endpoint جدید برای دانلود فایل (`GET /api/chat/download?filePath=...`)
+- ✅ تنظیم Content-Type مناسب برای انواع مختلف فایل (PDF, تصاویر، ویدیو، صوت، اسناد آفیس، و غیره)
+- ✅ تنظیم Content-Disposition برای نمایش نام صحیح فایل
+- ✅ فعال‌سازی Range Processing برای پشتیبانی از resume و streaming
+- ✅ محافظت در برابر Directory Traversal attacks
+- ✅ مجوز دسترسی برای مهمان‌ها (AllowAnonymous) با CORS
+
+**فایل‌های اضافه/تغییر یافته**:
+- `src/Web/Endpoints/Chat.cs` (اضافه شدن endpoint و متد GetContentType)
 
 ### 12. رابط کاربری (Frontend) برای مدیریت پشتیبان‌ها ✔️
 
@@ -284,8 +295,8 @@
 - [x] رابط کاربری (Frontend) مدیریت پشتیبان‌ها
 - [x] نوتیف سایلنت برای گروه‌ها
 - [x] مشاهده خوانده شدن پیام در گروه
-- [ ] نوتیف برای کاربران در دو منطقه
-- [ ] دانلود فایل در WebView
+- [x] نوتیف برای کاربران (با احترام به تنظیم IsMuted)
+- [x] دانلود فایل در WebView
 
 ---
 

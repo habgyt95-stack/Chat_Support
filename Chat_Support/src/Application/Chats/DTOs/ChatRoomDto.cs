@@ -28,7 +28,12 @@ public class ChatRoomDto
             CreateMap<ChatRoom, ChatRoomDto>()
                 // اطمینان از UTC بودن فیلدهای تاریخ
                 .ForMember(d => d.CreatedAt, opt => opt.MapFrom(s => s.Created.UtcDateTime))
-                .ForMember(d => d.LastMessageTime, opt => opt.Ignore()); // LastMessageTime در نقاط مختلف تنظیم می‌شود
+                .ForMember(d => d.LastMessageTime, opt => opt.Ignore()) // LastMessageTime در نقاط مختلف تنظیم می‌شود
+                .ForMember(d => d.UnreadCount, opt => opt.Ignore()) // UnreadCount در نقاط مختلف محاسبه می‌شود
+                .ForMember(d => d.LastMessageContent, opt => opt.Ignore()) // LastMessageContent در نقاط مختلف تنظیم می‌شود
+                .ForMember(d => d.LastMessageSenderName, opt => opt.Ignore()) // LastMessageSenderName در نقاط مختلف تنظیم می‌شود
+                .ForMember(d => d.MessageCount, opt => opt.Ignore()) // MessageCount در نقاط مختلف محاسبه می‌شود
+                .ForMember(d => d.IsMuted, opt => opt.Ignore()); // IsMuted در نقاط مختلف از ChatRoomMember تنظیم می‌شود
         }
     }
 }
