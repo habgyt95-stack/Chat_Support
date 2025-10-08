@@ -47,6 +47,7 @@ public class ChatMessageDto
                     opt => opt.MapFrom(src => src.ReplyToMessage != null && src.ReplyToMessage.Sender != null ? $"{src.ReplyToMessage.Sender.FirstName} {src.ReplyToMessage.Sender.LastName}" : null))
                 .ForMember(dest => dest.RepliedMessageType,
                     opt => opt.MapFrom(src => src.ReplyToMessage != null ? (MessageType?)src.ReplyToMessage.Type : null))
+                .ForMember(dest => dest.DeliveryStatus, opt => opt.Ignore()) // DeliveryStatus محاسبه می‌شود یا در صورت نیاز به صورت جداگانه تنظیم می‌شود
                 .ForMember(dest => dest.Reactions, opt => opt.MapFrom(src =>
                     src.Reactions
                         .GroupBy(r => r.Emoji) // گروه‌بندی بر اساس نوع اموجی

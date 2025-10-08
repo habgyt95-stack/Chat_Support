@@ -20,8 +20,9 @@ public class NewMessageNotifier : INewMessageNotifier
     public async Task NotifyAsync(ChatMessage message, ChatRoom chatRoom, GuestUser? guestSender = null, CancellationToken cancellationToken = default)
     {
         // Determine recipients: all room members except the sender (if any)
+        // Include IsMuted to filter out users who have muted this chat room
         var members = await _db.ChatRoomMembers
-            .Where(m => m.ChatRoomId == chatRoom.Id && !m.IsDeleted)
+            .Where(m => m.ChatRoomId == chatRoom.Id && !m.IsDeleted && !m.IsMuted)
             .Select(m => m.UserId)
             .ToListAsync(cancellationToken);
 
@@ -69,6 +70,6 @@ public class NewMessageNotifier : INewMessageNotifier
     private static string Truncate(string text, int max)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
-        return text.Length <= max ? text : text.Substring(0, max) + "…";
+        return text.Length <= max ? text : text.Substring(0, max) + "ï¿½";
     }
 }

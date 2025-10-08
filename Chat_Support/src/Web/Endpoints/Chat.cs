@@ -49,6 +49,11 @@ public class Chat : EndpointGroupBase
             .DisableAntiforgery()
             .Accepts<IFormFile>("multipart/form-data");
 
+        // File download endpoint
+        chatApi.MapGet("/download", DownloadFile)
+            .AllowAnonymous()
+            .RequireCors("ChatSupportApp");
+
         // Group management endpoints
         chatApi.MapPut("/rooms/{roomId:int}", UpdateChatRoom).RequireAuthorization();
         chatApi.MapPost("/rooms/{roomId:int}/members/add", AddGroupMember).RequireAuthorization();
@@ -474,5 +479,60 @@ public class Chat : EndpointGroupBase
         var query = new GetMessageReadReceiptsQuery(messageId);
         var receipts = await sender.Send(query);
         return Results.Ok(receipts);
+    }
+
+    private static IResult DownloadFile(
+        [FromQuery] string filePath,
+        IWebHostEnvironment environment)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return Results.BadRequest("File path is required");
+
+        // Prevent directory traversal attacks
+        var fileName = Path.GetFileName(filePath);
+        if (string.IsNullOrWhiteSpace(fileName))
+            return Results.BadRequest("Invalid file path");
+
+        // Build the full path to the file in the uploads directory
+        var fullPath = Path.Combine(environment.WebRootPath, "uploads", fileName);
+
+        if (!File.Exists(fullPath))
+            return Results.NotFound("File not found");
+
+        // Get the MIME type based on file extension
+        var contentType = GetContentType(fileName);
+
+        // Return the file with proper headers for WebView compatibility
+        var fileStream = File.OpenRead(fullPath);
+        return Results.File(
+            fileStream,
+            contentType: contentType,
+            fileDownloadName: fileName,
+            enableRangeProcessing: true);
+    }
+
+    private static string GetContentType(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        return extension switch
+        {
+            ".pdf" => "application/pdf",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".mp4" => "video/mp4",
+            ".mp3" => "audio/mpeg",
+            ".wav" => "audio/wav",
+            ".doc" => "application/msword",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xls" => "application/vnd.ms-excel",
+            ".xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ".ppt" => "application/vnd.ms-powerpoint",
+            ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            ".txt" => "text/plain",
+            ".zip" => "application/zip",
+            ".rar" => "application/x-rar-compressed",
+            _ => "application/octet-stream"
+        };
     }
 }
