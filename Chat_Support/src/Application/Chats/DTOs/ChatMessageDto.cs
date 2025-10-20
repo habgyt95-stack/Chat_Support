@@ -29,8 +29,6 @@ public class ChatMessageDto
     {
         public Mapping()
         {
-            int currentUserId = 0;
-
             CreateMap<ChatMessage, ChatMessageDto>()
                 .ForMember(dest => dest.SenderId,
                     opt => opt.MapFrom(src => src.SenderId.HasValue ? src.SenderId.Value.ToString() : string.Empty))
@@ -48,8 +46,16 @@ public class ChatMessageDto
                 .ForMember(dest => dest.RepliedMessageType,
                     opt => opt.MapFrom(src => src.ReplyToMessage != null ? (MessageType?)src.ReplyToMessage.Type : null))
                 .ForMember(dest => dest.DeliveryStatus, opt => opt.Ignore()) // DeliveryStatus محاسبه می‌شود یا در صورت نیاز به صورت جداگانه تنظیم می‌شود
-                .ForMember(dest => dest.Reactions, opt => opt.MapFrom(src =>
-                    src.Reactions
+                .ForMember(dest => dest.Reactions, opt => opt.MapFrom((src, dest, destMember, context) =>
+                {
+                    // دریافت currentUserId از context با استفاده از TryGetItems
+                    int currentUserId = 0;
+                    if (context.TryGetItems(out var items) && items.ContainsKey("currentUserId"))
+                    {
+                        currentUserId = (int)items["currentUserId"];
+                    }
+                    
+                    return src.Reactions
                         .GroupBy(r => r.Emoji) // گروه‌بندی بر اساس نوع اموجی
                         .Select(g => new ReactionInfo // ساختن یک DTO برای هر گروه اموجی
                         {
@@ -57,8 +63,8 @@ public class ChatMessageDto
                             Count = g.Count(), // تعداد کل ری‌اکشن‌های این اموجی
                             IsReactedByCurrentUser = g.Any(r => r.UserId == currentUserId), // آیا کاربر فعلی این اموجی را گذاشته؟
                             UserFullNames = g.Select(r => $"{r.User.FirstName} {r.User.LastName}").ToList() // لیست نام تمام واکنش‌دهندگان
-                        })
-                ));
+                        }).ToList();
+                }));
         }
     }
 }

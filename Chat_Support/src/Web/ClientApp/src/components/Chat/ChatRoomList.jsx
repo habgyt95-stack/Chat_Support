@@ -220,30 +220,52 @@ const ChatRoomList = ({
     }
 
     if (showUserSearchResults && !(isAgent && activeTab === "support")) {
-      return usersWithoutActiveChat.length > 0 ? (
+      return (
         <>
-          <div className="user-search-list-separator">کاربران جدید</div>
-          {usersWithoutActiveChat.map((user) => (
-            <ListGroup.Item
-              key={user.id}
-              className="user-search-list-item"
-              action
-              onMouseDown={() => handleUserSelectForChat(user)}
-            >
-              <span className="user-search-avatar bg-secondary text-light me-2">
-                {user.fullName?.charAt(0)}
-              </span>
-              <span className="fw-bold">{user.fullName}</span>
-              <span className="text-muted ms-2">{user.userName}</span>
-            </ListGroup.Item>
-          ))}
+          {/* گزینه ایجاد گروه جدید - مثل تلگرام */}
+          <ListGroup.Item
+            className="user-search-list-item"
+            action
+            onMouseDown={onNewRoom}
+            style={{ 
+              borderBottom: '1px solid #e0e0e0',
+              fontWeight: '500'
+            }}
+          >
+            <span className="user-search-avatar bg-primary text-light me-2">
+              <PeopleFill size={16} />
+            </span>
+            <span className="fw-bold text-primary">ایجاد گروه جدید</span>
+          </ListGroup.Item>
+
+          {usersWithoutActiveChat.length > 0 ? (
+            <>
+              <div className="user-search-list-separator">کاربران جدید</div>
+              {usersWithoutActiveChat.map((user) => (
+                <ListGroup.Item
+                  key={user.id}
+                  className="user-search-list-item"
+                  action
+                  onMouseDown={() => handleUserSelectForChat(user)}
+                >
+                  <span className="user-search-avatar bg-secondary text-light me-2">
+                    {user.fullName?.charAt(0)}
+                  </span>
+                  <span className="fw-bold">{user.fullName}</span>
+                  <span className="text-muted ms-2">{user.userName}</span>
+                </ListGroup.Item>
+              ))}
+            </>
+          ) : searchTerm ? (
+            <div className="text-center p-4 text-muted">
+              کاربری یافت نشد
+            </div>
+          ) : (
+            <div className="text-center p-4 text-muted">
+              برای شروع چت، کاربری را جستجو کنید
+            </div>
+          )}
         </>
-      ) : (
-        <div className="text-center p-4 text-muted">
-          {searchTerm
-            ? "کاربری یافت نشد"
-            : "برای شروع چت، کاربری را جستجو کنید"}
-        </div>
       );
     }
 
@@ -307,7 +329,7 @@ const ChatRoomList = ({
               {room.lastMessageContent || room.description || ""}
             </small>
             <div className="d-flex align-items-center gap-1">
-              {room.isMuted && (
+              {room.isGroup && room.isMuted && (
                 <BellSlash className="text-muted" size={14} title="نوتیفیکیشن غیرفعال" />
               )}
               {room.unreadCount > 0 && (
@@ -443,47 +465,6 @@ const ChatRoomList = ({
     </div>
   );
 
-  const renderBottomToggle = () => (
-    <div
-      style={{
-        position: "sticky",
-        bottom: 0,
-        background: "#fff",
-        borderTop: "1px solid rgba(0,0,0,0.08)",
-      }}
-      className="p-2 d-flex align-items-center justify-content-between"
-    >
-      <div
-        className="text-truncate"
-        title={activePhone}
-        style={{ maxWidth: "70%" }}
-      >
-        <small className="text-muted">حساب فعال:</small>{" "}
-        <span className="fw-semibold">{activePhone}</span>
-      </div>
-      <Button
-        variant="light"
-        size="sm"
-        className="d-flex align-items-center"
-        onClick={() => {
-          setShowSettingsDrawer(true);
-          setAccountsOpen((s) => !s);
-        }}
-        aria-label="باز/بسته حساب‌ها"
-        aria-expanded={accountsOpen}
-        aria-controls="accounts-collapse"
-      >
-        <ChevronDown
-          size={18}
-          style={{
-            transform: accountsOpen ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 360ms cubic-bezier(0.2, 0.8, 0.2, 1)",
-          }}
-        />
-      </Button>
-    </div>
-  );
-
   return (
     <div className="d-flex flex-column h-100">
       <div className="sidebar-header p-0">
@@ -568,10 +549,10 @@ const ChatRoomList = ({
       {!(isAgent && activeTab === "support") && (
         <Button
           variant="primary"
-          onClick={onNewRoom}
+          onClick={activateSearch}
           className="floating-compose-btn shadow"
-          aria-label="چت جدید"
-          title="چت جدید"
+          aria-label="جستجو"
+          title="جستجو"
         >
           <PencilFill size={20} />
         </Button>

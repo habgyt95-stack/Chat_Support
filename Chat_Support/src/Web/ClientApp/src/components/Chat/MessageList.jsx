@@ -11,22 +11,20 @@ const MessageList = ({messages, isLoading, hasMoreMessages, onLoadMoreMessages, 
 
   const scrollToBottom = useCallback((smooth = false) => {
     if (listRef.current) {
-      listRef.current.scrollTo({
-        top: listRef.current.scrollHeight,
-        behavior: smooth ? 'smooth' : 'auto',
+      // استفاده از requestAnimationFrame برای اطمینان از اجرای بعد از رندر کامل
+      requestAnimationFrame(() => {
+        if (listRef.current) {
+          const scrollHeight = listRef.current.scrollHeight;
+          listRef.current.scrollTo({
+            top: scrollHeight,
+            behavior: smooth ? 'smooth' : 'auto',
+          });
+        }
       });
     }
   }, []);
 
-  // تشخیص اینکه آیا کاربر نزدیک پایین است یا نه
-  const isNearBottom = useCallback(() => {
-    if (!listRef.current) return false;
-    const container = listRef.current;
-    const threshold = 100; // 100 پیکسل از پایین
-    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
-  }, []);
-
-  // پس از مقداردهی اولیه، فقط هنگام اضافه شدن پیام جدید و وقتی کاربر نزدیک پایین است اسکرول کن
+  // پس از مقداردهی اولیه، فقط هنگام اضافه شدن پیام جدید به پایین اسکرول کن
   useEffect(() => {
     const lastMsg = messages[messages.length - 1];
     const prevLastId = lastMessageIdRef.current;
@@ -38,11 +36,14 @@ const MessageList = ({messages, isLoading, hasMoreMessages, onLoadMoreMessages, 
     // اگر اولین بار مقداردهی لیست است، هیچ اسکرولی نکن
     if (!prevLastId) return;
 
-    // فقط وقتی پیام جدیدی به انتها اضافه شده و کاربر نزدیک پایین است، به پایین اسکرول نرم کن
-    if (lastMsg && lastMsg.id !== prevLastId && isNearBottom()) {
-      scrollToBottom(true);
+    // وقتی پیام جدیدی به انتها اضافه شده، همیشه به پایین اسکرول کن (با انیمیشن نرم)
+    if (lastMsg && lastMsg.id !== prevLastId) {
+      // استفاده از setTimeout برای اطمینان از رندر شدن کامل پیام
+      setTimeout(() => {
+        scrollToBottom(true);
+      }, 100);
     }
-  }, [messages, isNearBottom, scrollToBottom]);
+  }, [messages, scrollToBottom]);
 
   // Ensure initial load for a room starts scrolled to bottom without a visual jump.
   // useLayoutEffect runs before the browser paints so the user won't see the list start at top

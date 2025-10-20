@@ -47,6 +47,19 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Cha
             .FirstOrDefaultAsync(cr => cr.Id == request.ChatRoomId, cancellationToken)
             ?? throw new KeyNotFoundException($"Chat room with Id {request.ChatRoomId} not found.");
 
+        // بررسی اینکه اگر اتاق پشتیبانی است، آیا تیکت بسته شده؟
+        if (chatRoom.ChatRoomType == ChatRoomType.Support)
+        {
+            var ticket = await _context.SupportTickets
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.ChatRoomId == request.ChatRoomId, cancellationToken);
+
+            if (ticket != null && ticket.Status == SupportTicketStatus.Closed)
+            {
+                throw new InvalidOperationException("این گفتگوی پشتیبانی بسته شده است و امکان ارسال پیام جدید وجود ندارد.");
+            }
+        }
+
         bool isGuest = senderUserId == 0 || senderUserId == -1;
         GuestUser? guestUser = null;
         if (isGuest)
@@ -86,7 +99,11 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Cha
             .Include(m => m.ReplyToMessage).ThenInclude(rpm => rpm!.Sender) 
             .FirstAsync(m => m.Id == message.Id, cancellationToken);
 
-        var messageDto = _mapper.Map<ChatMessageDto>(messageToMap);
+        var messageDto = _mapper.Map<ChatMessageDto>(messageToMap, opts => 
+        {
+            if (!isGuest && senderUserId > 0)
+                opts.Items["currentUserId"] = senderUserId;
+        });
 
         // For guest messages, enrich DTO with guest display name if needed
         if (isGuest)

@@ -348,7 +348,7 @@ function chatReducer(state, action) {
       return { ...state, forwardingMessage: null };
 
     case ActionTypes.MESSAGE_REACTION_SUCCESS: {
-      const { messageId, userId, userName, emoji, chatRoomId, isRemoved } = action.payload;
+      const { messageId, userId, userFullName, emoji, chatRoomId, isRemoved } = action.payload;
       if (!state.messages[chatRoomId]) return state;
 
       return {
@@ -360,14 +360,51 @@ function chatReducer(state, action) {
             items: state.messages[chatRoomId].items.map((msg) => {
               if (msg.id === messageId) {
                 let newReactionsList = [...(msg.reactions || [])];
-                const reactionIndex = newReactionsList.findIndex((r) => r.userId === userId && r.emoji === emoji);
-
-                if (isRemoved) {
-                  if (reactionIndex > -1) newReactionsList.splice(reactionIndex, 1);
-                } else {
-                  newReactionsList = newReactionsList.filter((r) => r.userId !== userId);
-                  newReactionsList.push({ emoji, userId, userName });
+                
+                // پیدا کردن واکنش فعلی برای این ایموجی
+                const existingReactionIndex = newReactionsList.findIndex(r => r.emoji === emoji);
+                
+                if (existingReactionIndex !== -1) {
+                  const existingReaction = newReactionsList[existingReactionIndex];
+                  const userFullNames = existingReaction.userFullNames || [];
+                  
+                  if (isRemoved) {
+                    // حذف کاربر از لیست
+                    const updatedUserNames = userFullNames.filter(name => name !== userFullName);
+                    
+                    if (updatedUserNames.length === 0) {
+                      // اگر کسی نمانده، کل واکنش را حذف کن
+                      newReactionsList.splice(existingReactionIndex, 1);
+                    } else {
+                      // به‌روزرسانی واکنش
+                      newReactionsList[existingReactionIndex] = {
+                        ...existingReaction,
+                        count: updatedUserNames.length,
+                        userFullNames: updatedUserNames,
+                        isReactedByCurrentUser: userId === state.currentLoggedInUserId ? false : existingReaction.isReactedByCurrentUser
+                      };
+                    }
+                  } else {
+                    // اضافه کردن کاربر
+                    if (!userFullNames.includes(userFullName)) {
+                      newReactionsList[existingReactionIndex] = {
+                        ...existingReaction,
+                        count: existingReaction.count + 1,
+                        userFullNames: [...userFullNames, userFullName],
+                        isReactedByCurrentUser: userId === state.currentLoggedInUserId ? true : existingReaction.isReactedByCurrentUser
+                      };
+                    }
+                  }
+                } else if (!isRemoved) {
+                  // ایموجی جدید اضافه می‌شود
+                  newReactionsList.push({
+                    emoji,
+                    count: 1,
+                    userFullNames: [userFullName],
+                    isReactedByCurrentUser: userId === state.currentLoggedInUserId
+                  });
                 }
+                
                 return { ...msg, reactions: newReactionsList };
               }
               return msg;

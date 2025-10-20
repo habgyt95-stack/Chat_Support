@@ -15,6 +15,19 @@ public class ToggleChatRoomMuteCommandHandler : IRequestHandler<ToggleChatRoomMu
 
     public async Task<bool> Handle(ToggleChatRoomMuteCommand request, CancellationToken cancellationToken)
     {
+        // Only allow mute for group chats
+        var room = await _context.ChatRooms
+            .Where(r => r.Id == request.RoomId)
+            .Select(r => new { r.Id, r.IsGroup, r.ChatRoomType })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (room == null)
+            return false;
+
+        var isGroup = room.IsGroup || room.ChatRoomType == Domain.Enums.ChatRoomType.Group;
+        if (!isGroup)
+            return false; // disallow muting non-group chats
+
         var member = await _context.ChatRoomMembers
             .FirstOrDefaultAsync(m => m.ChatRoomId == request.RoomId && m.UserId == request.UserId, cancellationToken);
 

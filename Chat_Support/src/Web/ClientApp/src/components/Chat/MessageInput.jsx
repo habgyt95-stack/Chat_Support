@@ -32,6 +32,8 @@ const MessageInput = ({ roomId }) => {
     // const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [voiceActive, setVoiceActive] = useState(false); // ضبط/پیش‌نمایش فعال
 
+    const [pendingAttachment, setPendingAttachment] = useState(null); // { url, name, type, size, mimeType }
+
     const MAX_TEXTAREA_HEIGHT = 180; // حداکثر ارتفاع ورودی (px) شبیه تلگرام
 
     useEffect(() => {
@@ -60,7 +62,7 @@ const MessageInput = ({ roomId }) => {
                 }
             }
         }
-    }, [message]);
+    }, [message, pendingAttachment]);
 
     useEffect(() => {
         if (replyingToMessage) {
@@ -92,6 +94,7 @@ const MessageInput = ({ roomId }) => {
         if (isForwarding) clearForwardingMessage();
 
         setMessage('');
+        setPendingAttachment(null);
     };
 
     const handleSubmit = async () => {
@@ -112,6 +115,13 @@ const MessageInput = ({ roomId }) => {
                 // برای هدایت، محتوای جدیدی ارسال نمی‌شود
 
                 await forwardMessage(forwardingMessage.id, roomId);
+            } else if (pendingAttachment) {
+                await sendMessage(roomId, {
+                    content,
+                    type: pendingAttachment.type,
+                    attachmentUrl: pendingAttachment.url,
+                    replyToMessageId: replyingToMessage?.id,
+                });
             } else {
                 await sendMessage(roomId, { content, type: MessageType.Text });
             }
@@ -164,13 +174,23 @@ const MessageInput = ({ roomId }) => {
         setMessage('');
 
         try {
-            await sendMessage(roomId, {
-                content,
+            if (pendingAttachment) {
+                await sendMessage(roomId, {
+                    content,
+                    type: pendingAttachment.type,
+                    attachmentUrl: pendingAttachment.url,
+                    replyToMessageId: replyingToMessage?.id,
+                });
+                setPendingAttachment(null);
+            } else {
+                await sendMessage(roomId, {
+                    content,
 
-                type: MessageType.Text,
+                    type: MessageType.Text,
 
-                replyToMessageId: replyingToMessage?.id,
-            });
+                    replyToMessageId: replyingToMessage?.id,
+                });
+            }
 
             clearReplyingToMessage();
         } catch (error) {
@@ -218,39 +238,13 @@ const MessageInput = ({ roomId }) => {
     };
 
     // Callback for file upload component
-    const onFileUploaded = async ({ url, name, type }) => {
-        // Prompt user for mandatory caption
-        const caption = prompt('لطفاً یک توضیح برای فایل وارد کنید (اجباری):', name);
-        
-        // If user cancels or enters empty caption, don't send
-        if (!caption || caption.trim() === '') {
-            alert('توضیح فایل اجباری است. فایل ارسال نشد.');
-            return;
-        }
-
-        try {
-            setIsSending(true);
-
-            await sendMessage(roomId, {
-                content: caption.trim(),
-
-                type,
-
-                attachmentUrl: url,
-            });
-        } catch (error) {
-            console.error('Failed to send file message:', error);
-
-            alert('خطا در ارسال فایل');
-        } finally {
-            setIsSending(false);
-
-            // حفظ focus بعد از ارسال فایل
-
-            setTimeout(() => {
-                textareaRef.current?.focus();
-            }, 150);
-        }
+    const onFileUploaded = async ({ url, name, type, size, mimeType }) => {
+        // مرحله جدید: فایل آپلود شده در حالت انتظار قرار می‌گیرد و کاربر باید کپشن را وارد کند.
+        setPendingAttachment({ url, name, type, size, mimeType });
+        // کپشن باید اجباری باشد؛ مقدار اولیه ورودی خالی می‌ماند تا کاربر حتما بنویسد.
+        setMessage('');
+        // فوکوس روی تکست‌باکس برای نوشتن کپشن
+        setTimeout(() => textareaRef.current?.focus(), 0);
     };
 
     // Callback for voice recorder component
@@ -337,9 +331,46 @@ const MessageInput = ({ roomId }) => {
         return null;
     };
 
+    const renderPendingAttachmentPreview = () => {
+        if (!pendingAttachment) return null;
+        const { url, name, type, mimeType } = pendingAttachment;
+        const isImage = type === MessageType.Image || (mimeType && mimeType.startsWith('image/'));
+        const isVideo = type === MessageType.Video || (mimeType && mimeType.startsWith('video/'));
+        const isAudio = type === MessageType.Audio || (mimeType && mimeType.startsWith('audio/'));
+        return (
+            <div className="attachment-preview">
+                <div className="thumb">
+                    {isImage ? (
+                        <img src={url} alt={name} />
+                    ) : isVideo ? (
+                        <div className="thumb-icon">🎬</div>
+                    ) : isAudio ? (
+                        <div className="thumb-icon">🎵</div>
+                    ) : (
+                        <div className="thumb-icon">📎</div>
+                    )}
+                </div>
+                <div className="meta">
+                    <div className="name" title={name}>{name}</div>
+                    <div className="hint">کپشن اجباری است؛ لطفاً در کادر زیر وارد کنید</div>
+                </div>
+                <CloseButton className="remove" onClick={() => setPendingAttachment(null)} title="حذف فایل" />
+            </div>
+        );
+    };
+
+    const placeholder = pendingAttachment
+        ? 'کپشن فایل را بنویسید...'
+        : (isForwarding ? 'برای ارسال پیام هدایت شده، دکمه ارسال را بزنید' : 'پیام...');
+
+    const canShowSendBtn = isEditing
+        ? !!message.trim()
+        : !!message.trim() && !isForwarding; // برای فایل نیز باید کپشن پر باشد
+
     return (
         <div className="message-input-container p-2">
             {renderActionPreview()}
+            {renderPendingAttachmentPreview()}
 
             <div className="message-input-wrapper gap-1">
                 {/* align-items-end so ارتفاع فقط رو به بالا حس شود */}
@@ -358,7 +389,7 @@ const MessageInput = ({ roomId }) => {
                             ref={textareaRef}
                             as="textarea"
                             rows={1}
-                            placeholder={isForwarding ? 'برای ارسال پیام هدایت شده، دکمه ارسال را بزنید' : 'پیام...'}
+                            placeholder={placeholder}
                             value={message}
                             onChange={(e) => {
                                 setMessage(e.target.value);
@@ -383,7 +414,7 @@ const MessageInput = ({ roomId }) => {
                     </div>
 
                     <div className="d-flex gap-1 align-items-center" style={{ display: voiceActive ? 'none' : 'flex' }}>
-                        <FileUploadComponent onFileUploaded={onFileUploaded} disabled={isSending} chatRoomId={roomId} />
+                        <FileUploadComponent onFileUploaded={onFileUploaded} disabled={isSending || !!pendingAttachment} chatRoomId={roomId} />
 
                         {isEditing ? (
                             <Button
@@ -397,7 +428,7 @@ const MessageInput = ({ roomId }) => {
                             >
                                 {isSending ? <Spinner size="sm" /> : <IoCheckmark size={20} color="#198754" />}
                             </Button>
-                        ) : message.trim() ? (
+                        ) : canShowSendBtn ? (
                             <Button
                                 variant="link"
                                 onMouseDown={(e) => e.preventDefault()}
@@ -405,7 +436,7 @@ const MessageInput = ({ roomId }) => {
                                 onClick={handleSendMessage}
                                 disabled={!message.trim() || isSending}
                                 className="send-button p-1"
-                                title="ارسال پیام"
+                                title={pendingAttachment ? 'ارسال فایل با کپشن' : 'ارسال پیام'}
                             >
                                 {isSending ? <Spinner size="sm" /> : <IoSend size={20} className="icon_flip" />}
                             </Button>

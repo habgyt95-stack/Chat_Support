@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using Chat_Support.Application.Auth.Commands;
 using Chat_Support.Application.Common.Behaviours;
+using Chat_Support.Application.Support.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -22,5 +23,8 @@ public static class DependencyInjection
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(ValidationBehaviour<,>));
             cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(PerformanceBehaviour<,>));
         });
+
+        // ثبت سرویس ربات مجازی
+        builder.Services.AddScoped<IVirtualBotService, VirtualBotService>();
     }
 }

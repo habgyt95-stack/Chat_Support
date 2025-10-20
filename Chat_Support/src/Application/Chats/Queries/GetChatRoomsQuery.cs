@@ -31,7 +31,7 @@ public class GetChatRoomsQueryHandler : IRequestHandler<GetChatRoomsQuery, List<
             return new List<ChatRoomDto>();
         }
 
-        // --- بخش ۱: کوئری بهینه برای خواندن تمام اطلاعات لازم ---
+        // --- بخش ۱: کوئری بهینه برای خواندن تمام معلومات لازم ---
         var userChatRooms = await _context.ChatRooms
             .AsNoTracking()
             .Where(cr => cr.Members.Any(m => m.UserId == userId)) // فقط چت‌روم‌هایی که کاربر عضو آنهاست
@@ -57,8 +57,9 @@ public class GetChatRoomsQueryHandler : IRequestHandler<GetChatRoomsQuery, List<
             dto.UnreadCount = originalRoom.Messages
                 .Count(m => m.SenderId != userId && m.Id > (currentUserMembership?.LastReadMessageId ?? 0));
 
-            // تنظیم وضعیت Mute
-            dto.IsMuted = currentUserMembership?.IsMuted ?? false;
+            // تنظیم وضعیت Mute: فقط برای گروه‌ها
+            var isGroup = originalRoom.IsGroup || originalRoom.ChatRoomType == Domain.Enums.ChatRoomType.Group;
+            dto.IsMuted = isGroup && (currentUserMembership?.IsMuted ?? false);
 
             // سفارشی‌سازی نام و آواتار برای چت‌های خصوصی
             if (!originalRoom.IsGroup && originalRoom.Members.Count >= 2)

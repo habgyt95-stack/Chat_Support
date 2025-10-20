@@ -217,42 +217,50 @@ export const formatFileSize = (bytes) => {
    * @param {string} url - آدرس فایل
    * @param {string} filename - نام فایل مقصد (می‌تواند شامل پسوند باشد)
    */
-  export const downloadFile = async (url, filename = '') => {
+  /**
+   * دانلود فایل - سازگار با WebView اندروید
+   * به جای استفاده از fetch و blob، مستقیماً از endpoint دانلود سرور استفاده می‌کند
+   * @param {string} url - آدرس فایل
+   * @param {string} filename - نام فایل (اختیاری)
+   */
+  export const downloadFile = (url, filename = '') => {
     if (!url) return;
+    
     try {
-      const res = await fetch(url, { credentials: 'include' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const blob = await res.blob();
-      // اگر پسوند ندارد، از نوع MIME حدس می‌زنیم
-      if (filename && !/\.[a-zA-Z0-9]{2,6}$/.test(filename) && blob.type) {
-        const extMap = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'video/mp4': '.mp4', 'audio/mpeg': '.mp3', 'audio/wav': '.wav', 'application/pdf': '.pdf' };
-        const guessed = extMap[blob.type];
-        if (guessed) filename += guessed;
+      // ساخت URL دانلود از طریق endpoint سرور
+      // این روش با WebView اندروید سازگار است چون لینک مستقیم است
+      let downloadUrl = url;
+      
+      // اگر URL از /uploads شروع می‌شود، از endpoint دانلود استفاده کن
+      if (url.startsWith('/uploads') || url.includes('/uploads/')) {
+        const filePath = encodeURIComponent(url);
+        downloadUrl = `/api/chat/download?filePath=${filePath}`;
       }
-      if (!filename) {
-        // استخراج از URL
-        try {
-          const u = new URL(url, window.location.origin);
-          filename = decodeURIComponent(u.pathname.split('/').pop() || 'file');
-        } catch {
-          filename = 'file';
-        }
-      }
-      const objectUrl = window.URL.createObjectURL(blob);
+      
+      // ایجاد لینک دانلود - این روش با WebView کار می‌کند
       const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = filename;
+      a.href = downloadUrl;
+      a.download = filename || ''; // نام فایل از سرور گرفته می‌شود
+      a.target = '_blank'; // برای سازگاری بیشتر
+      a.rel = 'noopener noreferrer';
+      
+      // اضافه کردن به DOM، کلیک و حذف
       document.body.appendChild(a);
       a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+      
+      // حذف element بعد از یک لحظه
+      setTimeout(() => {
+        document.body.removeChild(a);
+      }, 100);
+      
     } catch (err) {
       console.error('downloadFile error:', err);
-      // fallback
-      const a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.click();
+      
+      // fallback: باز کردن در تب جدید
+      try {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      } catch (openErr) {
+        console.error('Failed to open file:', openErr);
+      }
     }
   };

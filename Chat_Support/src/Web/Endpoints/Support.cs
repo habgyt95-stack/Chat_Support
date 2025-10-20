@@ -5,6 +5,7 @@ using Chat_Support.Application.Support.Commands;
 using Chat_Support.Application.Support.Queries;
 using Chat_Support.Domain.Entities;
 using Chat_Support.Domain.Enums;
+using Chat_Support.Web.Infrastructure.Filters;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -45,20 +46,30 @@ public class Support : EndpointGroupBase
             .Produces<GuestAuthResult>(StatusCodes.Status200OK)
             .RequireCors("ChatSupportApp");
 
-        // Agent endpoints (require auth)
-        group.MapGet("/tickets", GetAgentTickets);
+        // Agent endpoints (require auth - checked via Support_Agents table)
+        group.MapGet("/tickets", GetAgentTickets)
+            .RequireAuthorization()
+            .AddEndpointFilter<AgentOnlyFilter>();
 
         group.MapPost("/tickets/{ticketId}/transfer", TransferTicket)
-            .RequireAuthorization("Agent");
+            .RequireAuthorization()
+            .AddEndpointFilter<AgentOnlyFilter>();
 
         group.MapPost("/agent/status", UpdateAgentStatus)
-            .RequireAuthorization("Agent");
+            .RequireAuthorization()
+            .AddEndpointFilter<AgentOnlyFilter>();
+
+        group.MapGet("/agent/status-info", GetAgentStatusInfo)
+            .RequireAuthorization()
+            .AddEndpointFilter<AgentOnlyFilter>();
 
         group.MapGet("/agents/available", GetAvailableAgents)
-            .RequireAuthorization("Agent");
+            .RequireAuthorization()
+            .AddEndpointFilter<AgentOnlyFilter>();
 
         group.MapPost("/tickets/{ticketId}/close", CloseTicket)
-            .RequireAuthorization("Agent");
+            .RequireAuthorization()
+            .AddEndpointFilter<AgentOnlyFilter>();
 
         // New: check if current user is an agent (by DB lookup)
         group.MapGet("/is-agent", IsCurrentUserAgent)
@@ -108,16 +119,16 @@ public class Support : EndpointGroupBase
 
         if (!string.IsNullOrEmpty(userIdString) || !string.IsNullOrWhiteSpace(userIdString))
         {
-            userId = int.TryParse(userIdString, out var parsedId) ? parsedId : null;
+            userId = int.TryParse(userIdString, out var parsedId) ? parsedId : (int?)null;
         }
 
         // اگر کاربر لاگین نکرده، و SessionId مهمان هم نیست، unauthorized
-        if (string.IsNullOrEmpty(userId.ToString()) && string.IsNullOrEmpty(request.GuestSessionId))
+        if (string.IsNullOrEmpty(userId?.ToString()) && string.IsNullOrEmpty(request.GuestSessionId))
         {
             return Results.Unauthorized();
         }
 
-        if (string.IsNullOrEmpty(userId.ToString()))
+        if (string.IsNullOrEmpty(userId?.ToString()))
         {
             // واکشی کاربر مهمان بر اساس SessionId
             GuestUser? guestUser = await dbContext.GuestUsers.FirstOrDefaultAsync(g => g.SessionId == request.GuestSessionId);
@@ -244,23 +255,30 @@ public class Support : EndpointGroupBase
 
     private static async Task<IResult> GetAgentTickets(
         HttpContext context,
+        SupportTicketStatus? status,
         IApplicationDbContext dbContext,
-        [FromQuery] SupportTicketStatus? status)
+        IAgentStatusManager statusManager)
     {
         string? value = context.User.FindFirst("sub")?.Value;
         if (value != null)
         {
             var agentId = int.Parse(value);
+            
+            // به‌روزرسانی فعالیت agent
+            await statusManager.UpdateActivityAsync(agentId);
 
             var query = dbContext.SupportTickets
                 .Include(t => t.RequesterUser)
                 .Include(t => t.RequesterGuest)
                 .Include(t => t.ChatRoom)
-                .ThenInclude(cr => cr.Messages)
+                .Include(t => t.Region)
                 .Where(t => t.AssignedAgent!.UserId == agentId);
 
             if (status.HasValue)
                 query = query.Where(t => t.Status == status.Value);
+            else
+                // به صورت پیش‌فرض تیکت‌های بسته شده را نشان نده
+                query = query.Where(t => t.Status != SupportTicketStatus.Closed);
 
             var tickets = await query
                 .OrderByDescending(t => t.Created)
@@ -271,13 +289,17 @@ public class Support : EndpointGroupBase
                     t.Created,
                     t.ClosedAt,
                     t.RegionId, // NEW
+                    RegionTitle = t.Region != null ? (t.Region.Title ?? t.Region.Name) : null,
                     ChatRoomId = t.ChatRoomId,
                     RequesterName = t.RequesterUser != null
-                        ? $"{t.RequesterUser.FirstName} {t.RequesterUser.LastName}"
-                        : t.RequesterGuest!.Name ?? "Guest",
+                        ? ($"{t.RequesterUser.FirstName} {t.RequesterUser.LastName}")
+                        : (t.RequesterGuest != null ? (t.RequesterGuest.Name ?? "Guest") : "Guest"),
                     RequesterEmail = t.RequesterUser != null
                         ? t.RequesterUser.Email
-                        : t.RequesterGuest!.Email,
+                        : (t.RequesterGuest != null ? t.RequesterGuest.Email : null),
+                    RequesterPhone = t.RequesterUser != null
+                        ? t.RequesterUser.Mobile
+                        : (t.RequesterGuest != null ? t.RequesterGuest.Phone : null),
                     LastMessage = t.ChatRoom.Messages
                         .OrderByDescending(m => m.Created)
                         .Select(m => new
@@ -285,7 +307,7 @@ public class Support : EndpointGroupBase
                             m.Content,
                             m.Created,
                             SenderName = m.Sender != null
-                                ? $"{m.Sender.FirstName} {m.Sender.LastName}"
+                                ? ($"{m.Sender.FirstName} {m.Sender.LastName}")
                                 : "Guest"
                         })
                         .FirstOrDefault(),
@@ -321,35 +343,92 @@ public class Support : EndpointGroupBase
     private static async Task<IResult> UpdateAgentStatus(
         HttpContext context,
         UpdateAgentStatusRequest request,
-        IAgentAssignmentService agentService)
+        IAgentStatusManager statusManager,
+        IAgentAssignmentService agentAssignment,
+        ILogger<Program> logger)
     {
         var agentId = int.Parse(context.User.FindFirst("sub")?.Value!);
-        await agentService.UpdateAgentStatusAsync(agentId, request.Status);
-        return Results.Ok();
+        
+        logger.LogInformation("Updating agent status: AgentId={AgentId}, NewStatus={NewStatus}", agentId, request.Status);
+        Console.WriteLine($"🔄 [{DateTime.Now:HH:mm:ss}] UpdateAgentStatus API called: AgentId={agentId}, NewStatus={request.Status}");
+        
+        // تنظیم دستی وضعیت با TTL 15 دقیقه
+        await statusManager.SetManualStatusAsync(agentId, request.Status);
+        
+        logger.LogInformation("Agent status updated successfully: AgentId={AgentId}", agentId);
+        Console.WriteLine($"✅ [{DateTime.Now:HH:mm:ss}] Agent status updated in DB: AgentId={agentId}");
+        
+        // اگر وضعیت به Available تغییر کرد، تیکت‌های ربات را بررسی کن
+        if (request.Status == AgentStatus.Available)
+        {
+            Console.WriteLine($"🚀 [{DateTime.Now:HH:mm:ss}] Agent became Available, triggering bot ticket reassignment...");
+            try
+            {
+                await agentAssignment.ReassignBotTicketsToAvailableAgentsAsync();
+                Console.WriteLine($"✅ [{DateTime.Now:HH:mm:ss}] Bot ticket reassignment completed.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [{DateTime.Now:HH:mm:ss}] Error in bot ticket reassignment: {ex.Message}");
+                logger.LogError(ex, "Error reassigning bot tickets after agent status change");
+            }
+        }
+        
+        return Results.Ok(new
+        {
+            Status = request.Status.ToString(),
+            Message = "وضعیت شما به صورت دستی تنظیم شد و تا 15 دقیقه آینده معتبر خواهد بود.",
+            ExpiresAt = DateTime.UtcNow.AddMinutes(15)
+        });
+    }
+    
+    // Endpoint جدید برای دریافت اطلاعات کامل وضعیت
+    private static async Task<IResult> GetAgentStatusInfo(
+        HttpContext context,
+        IAgentStatusManager statusManager)
+    {
+        var agentId = int.Parse(context.User.FindFirst("sub")?.Value!);
+        var statusInfo = await statusManager.GetStatusInfoAsync(agentId);
+        
+        return Results.Ok(new
+        {
+            CurrentStatus = statusInfo.CurrentStatus.ToString(),
+            IsManuallySet = statusInfo.IsManuallySet,
+            ExpiresAt = statusInfo.ExpiresAt,
+            TimeRemainingMinutes = statusInfo.TimeRemaining?.TotalMinutes,
+            AutoDetectedStatus = statusInfo.AutoDetectedStatus.ToString(),
+            LastActivityAt = statusInfo.LastActivityAt
+        });
     }
 
     private static async Task<IResult> GetAvailableAgents(
         IApplicationDbContext dbContext,
         [FromQuery] int? regionId)
     {
+        // Region isolation: require regionId for listing agents
+        if (!regionId.HasValue)
+        {
+            return Results.Ok(new List<object>());
+        }
+
+        var rid = regionId.Value;
+
         var agentsQuery = dbContext.SupportAgents
             .Include(a => a.User)
-            .Where(a => a.AgentStatus != AgentStatus.Offline);
-
-        if (regionId.HasValue)
-        {
-            var rid = regionId.Value;
-            agentsQuery = agentsQuery.Where(a => a.User != null && (
+            .Where(a => a.IsActive && a.AgentStatus != AgentStatus.Offline)
+            .Where(a => a.User != null && (
                 a.User.RegionId == rid ||
                 a.User.UserRegions.Any(ur => ur.RegionId == rid)
             ));
-        }
+
+        // Only show agents with capacity in the list
+        agentsQuery = agentsQuery.Where(a => a.MaxConcurrentChats > 0);
 
         var agents = await agentsQuery
             .Select(a => new
             {
                 a.UserId,
-                Name = a.User != null ? $"{a.User.FirstName} {a.User.LastName}" : "Agent",
+                Name = a.User != null ? ($"{a.User.FirstName} {a.User.LastName}") : "Agent",
                 a.AgentStatus,
                 a.CurrentActiveChats,
                 a.MaxConcurrentChats,
@@ -357,7 +436,8 @@ public class Support : EndpointGroupBase
                     ? (a.CurrentActiveChats) * 100 / a.MaxConcurrentChats
                     : 0
             })
-            .OrderBy(a => a.WorkloadPercentage)
+            .OrderBy(a => a.AgentStatus == AgentStatus.Available ? 0 : a.AgentStatus == AgentStatus.Away ? 1 : 2)
+            .ThenBy(a => a.WorkloadPercentage)
             .ToListAsync();
 
         return Results.Ok(agents);
@@ -391,15 +471,23 @@ public class Support : EndpointGroupBase
         // Update agent active chats
         if (ticket.AssignedAgentUserId.HasValue)
         {
-            var agent = await dbContext.SupportAgents.FirstOrDefaultAsync(a => a.UserId == ticket.AssignedAgentUserId.Value);
+            // ✅ AssignedAgentUserId به SupportAgent.Id اشاره داره نه UserId!
+            var agent = await dbContext.SupportAgents.FirstOrDefaultAsync(a => a.Id == ticket.AssignedAgentUserId.Value);
             if (agent is { CurrentActiveChats: > 0 })
             {
                 agent.CurrentActiveChats--;
+                Console.WriteLine($"✅ Ticket #{ticketId} closed: Agent {agent.UserId} CurrentActiveChats decreased to {agent.CurrentActiveChats}");
+                
                 if (agent.AgentStatus == AgentStatus.Busy &&
                     agent.CurrentActiveChats < agent.MaxConcurrentChats)
                 {
                     agent.AgentStatus = AgentStatus.Available;
+                    Console.WriteLine($"✅ Agent {agent.UserId} status changed from Busy to Available");
                 }
+            }
+            else if (agent == null)
+            {
+                Console.WriteLine($"⚠️ Agent not found for AssignedAgentUserId={ticket.AssignedAgentUserId.Value}");
             }
         }
 

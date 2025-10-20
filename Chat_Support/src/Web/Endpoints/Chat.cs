@@ -54,6 +54,11 @@ public class Chat : EndpointGroupBase
             .AllowAnonymous()
             .RequireCors("ChatSupportApp");
 
+        // File meta endpoint (return original file name/size/type by stored metadata)
+        chatApi.MapGet("/file-meta", GetFileMeta)
+            .AllowAnonymous()
+            .RequireCors("ChatSupportApp");
+
         // Group management endpoints
         chatApi.MapPut("/rooms/{roomId:int}", UpdateChatRoom).RequireAuthorization();
         chatApi.MapPost("/rooms/{roomId:int}/members/add", AddGroupMember).RequireAuthorization();
@@ -159,10 +164,14 @@ public class Chat : EndpointGroupBase
 
             dto.UnreadCount = context.ChatMessages.Count(m =>
                 m.ChatRoomId == item.RoomEntity.Id &&
-                m.SenderId != userId &&
+                m.SenderId != user.Id &&
                 !m.IsDeleted &&
                 (item.CurrentUserMembership!.LastReadMessageId == null || m.Id > item.CurrentUserMembership.LastReadMessageId)
             );
+
+            // فقط برای گروه‌ها امکان Mute را فعال و مقداردهی می‌کنیم
+            var isGroup = item.RoomEntity.IsGroup || item.RoomEntity.ChatRoomType == ChatRoomType.Group;
+            dto.IsMuted = isGroup && (item.CurrentUserMembership?.IsMuted ?? false);
 
             // سفارشی‌سازی نام و آواتار برای چت‌های خصوصی
             if (!dto.IsGroup && item.OtherUser != null)
@@ -488,27 +497,53 @@ public class Chat : EndpointGroupBase
         if (string.IsNullOrWhiteSpace(filePath))
             return Results.BadRequest("File path is required");
 
-        // Prevent directory traversal attacks
-        var fileName = Path.GetFileName(filePath);
-        if (string.IsNullOrWhiteSpace(fileName))
-            return Results.BadRequest("Invalid file path");
+        // Remove leading /uploads/ if present to normalize the path
+        var normalizedPath = filePath.TrimStart('/');
+        if (normalizedPath.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
+            normalizedPath = normalizedPath.Substring(8); // Remove "uploads/"
 
+        // Prevent directory traversal attacks
+        var safePath = normalizedPath.Replace("..", "").Replace("\\", "/");
+        
         // Build the full path to the file in the uploads directory
-        var fullPath = Path.Combine(environment.WebRootPath, "uploads", fileName);
+        var fullPath = Path.Combine(environment.WebRootPath, "uploads", safePath);
 
         if (!File.Exists(fullPath))
             return Results.NotFound("File not found");
+
+        // Extract filename for Content-Disposition header
+        var fileName = Path.GetFileName(fullPath);
 
         // Get the MIME type based on file extension
         var contentType = GetContentType(fileName);
 
         // Return the file with proper headers for WebView compatibility
         var fileStream = File.OpenRead(fullPath);
-        return Results.File(
+        
+        // Use Stream result with explicit Content-Disposition header for better WebView support
+        return Results.Stream(
             fileStream,
             contentType: contentType,
             fileDownloadName: fileName,
+            lastModified: File.GetLastWriteTimeUtc(fullPath),
             enableRangeProcessing: true);
+    }
+
+    private static async Task<IResult> GetFileMeta(
+        [FromQuery] string filePath,
+        IApplicationDbContext context)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+            return Results.BadRequest("File path is required");
+
+        var meta = await context.ChatFileMetadatas
+            .AsNoTracking()
+            .FirstOrDefaultAsync(m => m.FilePath == filePath);
+
+        if (meta == null)
+            return Results.NotFound();
+
+        return Results.Ok(new { fileName = meta.FileName, fileSize = meta.FileSize, contentType = meta.ContentType });
     }
 
     private static string GetContentType(string fileName)
@@ -516,13 +551,32 @@ public class Chat : EndpointGroupBase
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
         return extension switch
         {
-            ".pdf" => "application/pdf",
+            // Images
             ".jpg" or ".jpeg" => "image/jpeg",
             ".png" => "image/png",
             ".gif" => "image/gif",
+            ".bmp" => "image/bmp",
+            ".webp" => "image/webp",
+            ".svg" => "image/svg+xml",
+            ".ico" => "image/x-icon",
+            
+            // Videos
             ".mp4" => "video/mp4",
+            ".avi" => "video/x-msvideo",
+            ".mov" => "video/quicktime",
+            ".wmv" => "video/x-ms-wmv",
+            ".flv" => "video/x-flv",
+            ".webm" => "video/webm",
+            
+            // Audio
             ".mp3" => "audio/mpeg",
             ".wav" => "audio/wav",
+            ".ogg" => "audio/ogg",
+            ".m4a" => "audio/mp4",
+            ".aac" => "audio/aac",
+            
+            // Documents
+            ".pdf" => "application/pdf",
             ".doc" => "application/msword",
             ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             ".xls" => "application/vnd.ms-excel",
@@ -530,8 +584,21 @@ public class Chat : EndpointGroupBase
             ".ppt" => "application/vnd.ms-powerpoint",
             ".pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             ".txt" => "text/plain",
+            ".csv" => "text/csv",
+            ".rtf" => "application/rtf",
+            
+            // Archives
             ".zip" => "application/zip",
             ".rar" => "application/x-rar-compressed",
+            ".7z" => "application/x-7z-compressed",
+            ".tar" => "application/x-tar",
+            ".gz" => "application/gzip",
+            
+            // Other
+            ".json" => "application/json",
+            ".xml" => "application/xml",
+            
+            // Default
             _ => "application/octet-stream"
         };
     }

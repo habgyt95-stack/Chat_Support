@@ -4,6 +4,18 @@ import {Paperclip} from 'lucide-react';
 import {chatApi, fileHelpers} from '../../services/chatApi';
 import './Chat.css';
 
+// localStorage mapping helpers for original file names
+const FILE_NAME_CACHE_KEY = 'chat_file_names';
+const cacheOriginalFileName = (url, name) => {
+  if (!url || !name) return;
+  try {
+    const raw = localStorage.getItem(FILE_NAME_CACHE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[url] = name;
+    localStorage.setItem(FILE_NAME_CACHE_KEY, JSON.stringify(map));
+  } catch {}
+};
+
 // Simplified: open native picker directly, auto-upload, no modal
 const FileUploadComponent = ({onFileUploaded, disabled = false, chatRoomId, maxFileSizeMB = 20}) => {
   const fileInputRef = useRef(null);
@@ -32,6 +44,9 @@ const FileUploadComponent = ({onFileUploaded, disabled = false, chatRoomId, maxF
     try {
       const messageType = fileHelpers.getMessageTypeFromFile(file);
       const result = await chatApi.uploadFile(file, chatRoomId, messageType, () => {});
+
+      // Cache original filename for display purposes
+      cacheOriginalFileName(result.fileUrl, file.name);
 
       await onFileUploaded({
         url: result.fileUrl,

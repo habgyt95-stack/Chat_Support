@@ -35,17 +35,25 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(
         Path.Combine(builder.Environment.WebRootPath, "uploads")),
-    RequestPath = "/uploads"
+    RequestPath = "/uploads",
+    OnPrepareResponse = ctx =>
+    {
+        // اضافه کردن Content-Disposition برای دانلود بهتر در WebView
+        // این قبل از شروع ارسال response اجرا می‌شود
+        var fileName = Path.GetFileName(ctx.File.Name);
+        ctx.Context.Response.Headers.Append("Content-Disposition", $"attachment; filename=\"{fileName}\"");
+    }
 });
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("ChatSupportApp");
 app.UseAuthentication();
-app.UseAuthorization();
+app.UseAuthorization(); 
 app.UseSwaggerUi(settings =>
 {
     settings.Path = "/api";

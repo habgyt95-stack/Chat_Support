@@ -58,6 +58,11 @@ const AgentManagement = () => {
     }
   };
 
+  // فیلتر کاربرانی که هنوز پشتیبان نیستند
+  const availableUsers = users.filter(user => 
+    !agents.some(agent => agent.userId === user.id)
+  );
+
   const handleOpenCreateModal = () => {
     setModalMode('create');
     setSelectedAgent(null);
@@ -89,10 +94,20 @@ const AgentManagement = () => {
     e.preventDefault();
     
     try {
+      setError(null);
+      
       if (modalMode === 'create') {
+        // بررسی تکراری بودن
+        const isDuplicate = agents.some(agent => agent.userId === parseInt(formData.userId));
+        if (isDuplicate) {
+          setError('این کاربر قبلاً به عنوان پشتیبان اضافه شده است.');
+          return;
+        }
+        
         await chatApi.createAgent(parseInt(formData.userId), formData.maxConcurrentChats);
       } else {
-        await chatApi.updateAgent(selectedAgent.userId, {
+        // Use SupportAgent.Id for update
+        await chatApi.updateAgent(selectedAgent.id, {
           isActive: formData.isActive,
           maxConcurrentChats: formData.maxConcurrentChats,
         });
@@ -105,17 +120,28 @@ const AgentManagement = () => {
     }
   };
 
-  const handleDelete = async (agentId) => {
-    if (!window.confirm('آیا از حذف این پشتیبان اطمینان دارید؟ تیکت‌های فعال او به پشتیبان دیگری منتقل خواهد شد.')) {
+  const handleDelete = async (agentEntityId) => {
+    const agent = agents.find(a => a.id === agentEntityId);
+    const confirmMessage = agent
+      ? `آیا از حذف پشتیبان "${agent.fullName || 'نامشخص'}" اطمینان دارید؟\n\n` +
+        `تیکت‌های فعال (${agent.currentActiveChats || 0}) به پشتیبان دیگری منتقل خواهد شد.`
+      : 'آیا از حذف این پشتیبان اطمینان دارید؟';
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
     try {
-      await chatApi.deleteAgent(agentId);
+      setIsLoading(true);
+      // Use SupportAgent.Id for delete
+      await chatApi.deleteAgent(agentEntityId);
       await loadAgents();
+      setError(null); // پاک کردن خطاهای قبلی
     } catch (err) {
       setError('خطا در حذف پشتیبان: ' + (err.message || 'Unknown error'));
       console.error('Failed to delete agent:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -202,7 +228,7 @@ const AgentManagement = () => {
                         : 0;
 
                       return (
-                        <tr key={agent.userId}>
+                        <tr key={agent.id}>
                           <td>{agent.userId}</td>
                           <td>{agent.fullName || 'نامشخص'}</td>
                           <td>
@@ -250,7 +276,7 @@ const AgentManagement = () => {
                               <Button
                                 variant="outline-danger"
                                 size="sm"
-                                onClick={() => handleDelete(agent.userId)}
+                                onClick={() => handleDelete(agent.id)}
                               >
                                 <Trash2 size={14} />
                               </Button>
@@ -285,12 +311,21 @@ const AgentManagement = () => {
                   required
                 >
                   <option value="">-- انتخاب کنید --</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName} ({user.email})
-                    </option>
-                  ))}
+                  {availableUsers.length > 0 ? (
+                    availableUsers.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'بدون نام'} 
+                        {user.userName ? ` (@${user.userName})` : ''} 
+                        {user.mobile ? ` - ${user.mobile}` : user.email ? ` - ${user.email}` : ''}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>همه کاربران قبلاً پشتیبان شده‌اند</option>
+                  )}
                 </Form.Select>
+                <Form.Text className="text-muted">
+                  {availableUsers.length} کاربر در دسترس
+                </Form.Text>
               </Form.Group>
             ) : (
               <Alert variant="info">

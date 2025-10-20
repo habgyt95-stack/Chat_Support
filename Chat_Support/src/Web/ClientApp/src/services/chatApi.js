@@ -255,6 +255,15 @@ export const chatApi = {
     const response = await apiClient.delete(`${SUPPORT_BASE_URL}/agents/${agentId}`);
     return response.data;
   },
+  // Agent Status Management
+  getAgentStatusInfo: async () => {
+    const response = await apiClient.get(`${SUPPORT_BASE_URL}/agent/status-info`);
+    return response.data;
+  },
+  updateAgentStatus: async (status) => {
+    const response = await apiClient.post(`${SUPPORT_BASE_URL}/agent/status`, { status });
+    return response.data;
+  },
 };
 
 // Helper functions for file handling

@@ -20,9 +20,16 @@ public class NewMessageNotifier : INewMessageNotifier
     public async Task NotifyAsync(ChatMessage message, ChatRoom chatRoom, GuestUser? guestSender = null, CancellationToken cancellationToken = default)
     {
         // Determine recipients: all room members except the sender (if any)
-        // Include IsMuted to filter out users who have muted this chat room
-        var members = await _db.ChatRoomMembers
-            .Where(m => m.ChatRoomId == chatRoom.Id && !m.IsDeleted && !m.IsMuted)
+        // Only respect IsMuted for group chats; for personal/support chats, ignore mute
+        var membersQuery = _db.ChatRoomMembers
+            .Where(m => m.ChatRoomId == chatRoom.Id && !m.IsDeleted);
+
+        if (chatRoom.IsGroup || chatRoom.ChatRoomType == Domain.Enums.ChatRoomType.Group)
+        {
+            membersQuery = membersQuery.Where(m => !m.IsMuted);
+        }
+
+        var members = await membersQuery
             .Select(m => m.UserId)
             .ToListAsync(cancellationToken);
 

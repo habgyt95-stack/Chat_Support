@@ -17,23 +17,65 @@ public class ChatHub : Hub
     private readonly IUser _user;
     private readonly ILogger<ChatHub> _logger;
     private readonly IPresenceTracker _presence;
+    private readonly IAgentStatusManager _agentStatusManager;
     private static readonly ConcurrentDictionary<string, int> _typingUsers = new();
 
-    public ChatHub(IApplicationDbContext context, IUser user, ILogger<ChatHub> logger, IPresenceTracker presence)
+    public ChatHub(
+        IApplicationDbContext context, 
+        IUser user, 
+        ILogger<ChatHub> logger, 
+        IPresenceTracker presence,
+        IAgentStatusManager agentStatusManager)
     {
         _context = context;
         _user = user;
         _logger = logger;
         _presence = presence;
+        _agentStatusManager = agentStatusManager;
+    }
+    
+    /// <summary>
+    /// ثبت فعالیت پشتیبان اگر کاربر فعلی یک Agent باشد
+    /// </summary>
+    private async Task RecordAgentActivityAsync()
+    {
+        try
+        {
+            var userId = _user.Id;
+            if (userId <= 0) return;
+
+            // بررسی اینکه آیا کاربر فعلی یک Agent است
+            var isAgent = await _context.SupportAgents
+                .AnyAsync(a => a.UserId == userId && a.IsActive);
+
+            if (isAgent)
+            {
+                await _agentStatusManager.UpdateActivityAsync(userId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to record agent activity for UserId={UserId}", _user.Id);
+        }
     }
 
     public override async Task OnConnectedAsync()
     {
         var userId = _user.Id;
 
-        if (string.IsNullOrEmpty(userId.ToString()))
+        // Validate numeric user id
+        if (userId <= 0)
         {
-            _logger.LogWarning("OnConnectedAsync: Missing user id. ConnectionId={ConnectionId}", Context.ConnectionId);
+            _logger.LogWarning("OnConnectedAsync: Invalid user id. ConnectionId={ConnectionId}", Context.ConnectionId);
+            Context.Abort();
+            return;
+        }
+
+        // Ensure the user exists to satisfy FK on UserConnections
+        var userExists = await _context.KciUsers.AnyAsync(u => u.Id == userId);
+        if (!userExists)
+        {
+            _logger.LogWarning("OnConnectedAsync: User not found in DB. UserId={UserId} ConnectionId={ConnectionId}", userId, Context.ConnectionId);
             Context.Abort();
             return;
         }
@@ -61,6 +103,9 @@ public class ChatHub : Hub
         }
 
         _logger.LogInformation("OnConnected: UserId={UserId} ConnectionId={ConnectionId} UserIdentifier={UserIdentifier} JoinedRooms={Rooms}", userId, Context.ConnectionId, Context.UserIdentifier, string.Join(',', chatRoomIds));
+
+        // ثبت فعالیت برای پشتیبانان
+        await RecordAgentActivityAsync();
 
         await base.OnConnectedAsync();
     }
@@ -124,7 +169,7 @@ public class ChatHub : Hub
     public async Task StartTyping(string roomIdStr)
     {
         var userId = _user.Id;
-        if (string.IsNullOrEmpty(userId.ToString()) || !int.TryParse(roomIdStr, out int roomId))
+        if (userId <= 0 || !int.TryParse(roomIdStr, out int roomId))
             return;
 
         var user = await _context.KciUsers.FindAsync(userId);
@@ -157,7 +202,7 @@ public class ChatHub : Hub
     public async Task StopTyping(string? roomIdStr = null)
     {
         var userId = _user.Id;
-        if (string.IsNullOrEmpty(userId.ToString())) return;
+        if (userId <= 0) return;
 
         _presence.ClearActiveRoom(Context.ConnectionId);
 
@@ -252,6 +297,9 @@ public class ChatHub : Hub
         await _context.SaveChangesAsync(CancellationToken.None);
         _logger.LogInformation("MarkMessageAsRead: UserId={UserId} RoomId={RoomId} MessageId={MessageId} StatusBefore={BeforeStatus} LastReadBefore={BeforeLastRead} LastReadAfter={AfterLastRead}",
             userId, roomIdInt, msgId, beforeStatus, beforeLastRead, chatRoomMember?.LastReadMessageId);
+
+        // ثبت فعالیت برای پشتیبانان
+        await RecordAgentActivityAsync();
 
         // اطلاع به فرستنده پیام
         if (message.SenderId != null && message.SenderId != userId)
@@ -412,7 +460,7 @@ public class ChatHub : Hub
 
         foreach (var member in room.Members)
         {
-            if (string.IsNullOrEmpty(member.UserId.ToString())) continue;
+            if (member.UserId <= 0) continue;
             var unreadCount = await _context.ChatMessages
                 .CountAsync(m => m.ChatRoomId == roomId && m.SenderId != member.UserId && m.Id > (member.LastReadMessageId ?? 0));
             await Clients.User(member.UserId.ToString() ?? string.Empty)

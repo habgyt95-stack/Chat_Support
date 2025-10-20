@@ -1,4 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
+import ReactDOM from 'react-dom';
 import {Check2, Check2All, Clock, Reply, Pencil, Forward, Trash, EmojiSmile, Download, Eye} from 'react-bootstrap-icons';
 import {MessageDeliveryStatus} from '../../types/chat';
 import {useChat} from '../../hooks/useChat';
@@ -7,36 +8,10 @@ import './Chat.css';
 import {downloadFile} from '../../Utils/fileUtils';
 import {VoiceMessagePlayer} from './VoiceRecorderComponent';
 import ReadReceiptsModal from './ReadReceiptsModal';
+import EmojiPicker from './EmojiPicker';
 
 const MENU_WIDTH = 180; // حداقل عرض منو از CSS
 const MENU_HEIGHT = 220;
-
-const EmojiReactionPicker = ({onSelect, onClose}) => {
-  const emojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
-  const pickerRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [onClose]);
-
-  return (
-    <div ref={pickerRef} className="emoji-reaction-picker">
-      {emojis.map((emoji) => (
-        <span key={emoji} onClick={() => onSelect(emoji)}>
-          {emoji}
-        </span>
-      ))}
-    </div>
-  );
-};
 
 const MessageItem = ({message, isGroupChat = false}) => {
   const {deleteMessage, setReplyingToMessage, setEditingMessage, setForwardingMessage, sendReaction} = useChat();
@@ -44,10 +19,67 @@ const MessageItem = ({message, isGroupChat = false}) => {
   const isOwnMessage = Number(message.senderId) === Number(currentUserId);
   const [contextMenu, setContextMenu] = useState({visible: false, styles: {}});
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [emojiPickerPosition, setEmojiPickerPosition] = useState({});
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [isHoveringMedia, setIsHoveringMedia] = useState(false);
   const [showReadReceipts, setShowReadReceipts] = useState(false);
+  const [displayFileName, setDisplayFileName] = useState('');
   const longPressTimer = useRef();
+
+  const getFileNameFromUrl = (url) => {
+    if (!url) return '';
+    try {
+      const u = new URL(url, window.location.origin);
+      const raw = u.pathname.split('/').pop() || '';
+      return decodeURIComponent(raw);
+    } catch {
+      const idx = url.lastIndexOf('/')
+      return idx !== -1 ? decodeURIComponent(url.substring(idx + 1)) : url;
+    }
+  };
+
+  const fetchMetaName = async (filePath) => {
+    try {
+      const res = await fetch(`/api/chat/file-meta?filePath=${encodeURIComponent(filePath)}`, { credentials: 'include' });
+      if (!res.ok) return '';
+      const data = await res.json();
+      return data?.fileName || '';
+    } catch {
+      return '';
+    }
+  };
+
+  // جلوگیری از اسکرول body وقتی مودال تصویر باز است
+  useEffect(() => {
+    if (imageModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [imageModalOpen]);
+
+  useEffect(() => {
+    if (message.type !== 2 || !message.attachmentUrl) {
+      setDisplayFileName('');
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      // priority: message.fileName -> server meta -> fallback derived
+      const direct = message.fileName && typeof message.fileName === 'string' ? message.fileName : '';
+      if (direct) { setDisplayFileName(direct); return; }
+
+      const meta = await fetchMetaName(message.attachmentUrl);
+      if (!cancelled && meta) { setDisplayFileName(meta); return; }
+
+      const fallback = getFileNameFromUrl(message.attachmentUrl);
+      if (!cancelled) setDisplayFileName(fallback);
+    })();
+    return () => { cancelled = true; };
+  }, [message.type, message.attachmentUrl, message.fileName]);
 
   const handleContextMenu = (e) => {
     e.preventDefault();
@@ -58,7 +90,7 @@ const MessageItem = ({message, isGroupChat = false}) => {
     // ۱. بررسی سرریز افقی (آیا منو از سمت راست صفحه بیرون می‌زند؟)
     const opensLeft = e.clientX + MENU_WIDTH > window.innerWidth;
 
-    // ۲. بررسی سرریز عمودی (آیا منو از پایین صفحه بیرون می‌زند؟)
+    // ۲. بررسی سرریز عمودی (آیا منو از پایین صفحه بیرون می‌زد؟)
     const opensUp = e.clientY + MENU_HEIGHT > window.innerHeight;
 
     const styles = {};
@@ -142,9 +174,8 @@ const MessageItem = ({message, isGroupChat = false}) => {
 
   const handleDownload = () => {
     if (message.attachmentUrl) {
-      // اسم فایل پیشنهادی: اگر محتوای متنی دارد از آن + id، در غیر این صورت از id و نوع
-      const base = (message.content && message.content !== 'پیام صوتی') ? message.content.replace(/[^\w\u0600-\u06FF.-]+/g, '_').slice(0,40) : `media_${message.id}`;
-      downloadFile(message.attachmentUrl, base);
+      const suggestedName = displayFileName || getFileNameFromUrl(message.attachmentUrl) || `media_${message.id}`;
+      downloadFile(message.attachmentUrl, suggestedName);
     }
   };
 
@@ -194,20 +225,16 @@ const MessageItem = ({message, isGroupChat = false}) => {
   const renderReactions = () => {
     if (!message.reactions || message.reactions.length === 0) return null;
 
-    // Group reactions by emoji
-    const reactionGroups = message.reactions.reduce((acc, reaction) => {
-      if (!acc[reaction.emoji]) {
-        acc[reaction.emoji] = [];
-      }
-      acc[reaction.emoji].push(reaction);
-      return acc;
-    }, {});
-
     return (
       <div className="message-reactions mt-1">
-        {Object.entries(reactionGroups).map(([emoji, reactions]) => (
-          <span key={emoji} className="reaction-badge" onClick={() => handleReaction(emoji)} title={reactions.map((r) => r.userName).join(', ')}>
-            {emoji} {reactions.length}
+        {message.reactions.map((reaction) => (
+          <span 
+            key={reaction.emoji} 
+            className={`reaction-badge ${reaction.isReactedByCurrentUser ? 'reacted-by-me' : ''}`}
+            onClick={() => handleReaction(reaction.emoji)} 
+            title={reaction.userFullNames?.join(', ') || ''}
+          >
+            {reaction.emoji} {reaction.count}
           </span>
         ))}
       </div>
@@ -217,8 +244,6 @@ const MessageItem = ({message, isGroupChat = false}) => {
   const formatTime = (dateString) => {
     return new Date(dateString).toLocaleTimeString('fa-IR', {hour: '2-digit', minute: '2-digit'});
   };
-
-  // Debug: Log message prop at the top of render
 
   if (message.isDeleted) {
     return (
@@ -251,7 +276,7 @@ const MessageItem = ({message, isGroupChat = false}) => {
             >
               <img
                 src={message.attachmentUrl}
-                alt={message.content}
+                alt={message.content || 'تصویر'}
                 className="message-image"
                 onClick={() => setImageModalOpen(true)}
               />
@@ -267,12 +292,23 @@ const MessageItem = ({message, isGroupChat = false}) => {
               )}
             </div>
           )}
+          {message.type === 1 && message.content && (
+            <div className="media-caption">{message.content}</div>
+          )}
 
           {message.type === 2 && message.attachmentUrl && (
             <div className="message-file">
-              <a href={message.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                📎 {message.content}
+              <a 
+                href={`/api/chat/download?filePath=${encodeURIComponent(message.attachmentUrl)}`} 
+                download
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                📎 {displayFileName || 'دانلود فایل'}
               </a>
+              {message.content && message.content !== (displayFileName || '') && (
+                <div className="media-caption">{message.content}</div>
+              )}
             </div>
           )}
 
@@ -298,6 +334,9 @@ const MessageItem = ({message, isGroupChat = false}) => {
                 </button>
               )}
             </div>
+          )}
+          {message.type === 4 && message.content && (
+            <div className="media-caption">{message.content}</div>
           )}
 
           {message.isEdited && (
@@ -337,11 +376,21 @@ const MessageItem = ({message, isGroupChat = false}) => {
                   <Pencil /> ویرایش
                 </li>
               )}
-              <li onMouseEnter={() => setShowEmojiPicker(true)} onMouseLeave={() => setShowEmojiPicker(false)} style={{position: 'relative'}}>
+              <li 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setEmojiPickerPosition({
+                    top: rect.top,
+                    left: rect.left + rect.width + 10,
+                  });
+                  setShowEmojiPicker(!showEmojiPicker);
+                }}
+                style={{position: 'relative'}}
+              >
                 <EmojiSmile /> واکنش
-                {showEmojiPicker && <EmojiReactionPicker onSelect={handleReaction} onClose={() => setShowEmojiPicker(false)} />}
               </li>
-              {(message.type === 1 || message.type === 4) && message.attachmentUrl && (
+              {(message.type === 1 || message.type === 4 || message.type === 2) && message.attachmentUrl && (
                 <li onClick={() => handleAction(handleDownload)}>
                   <Download /> دانلود
                 </li>
@@ -355,11 +404,28 @@ const MessageItem = ({message, isGroupChat = false}) => {
           </div>
         )}
       </div>
-      {/* Image Modal */}
-      {imageModalOpen && message.type === 1 && message.attachmentUrl && (
-        <div className="image-modal-overlay" onClick={() => setImageModalOpen(false)}>
-          <img src={message.attachmentUrl} alt={message.content} className="image-modal-img" onClick={(e) => e.stopPropagation()} />
-        </div>
+      {/* Image Modal - Using Portal to render at document body level */}
+      {imageModalOpen && message.type === 1 && message.attachmentUrl && ReactDOM.createPortal(
+        <div 
+          className="image-modal-overlay" 
+          onClick={() => setImageModalOpen(false)}
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999
+          }}
+        >
+          <img 
+            src={message.attachmentUrl} 
+            alt={message.content || 'تصویر'} 
+            className="image-modal-img" 
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>,
+        document.body
       )}
 
       {/* Read Receipts Modal */}
@@ -369,6 +435,16 @@ const MessageItem = ({message, isGroupChat = false}) => {
           onHide={() => setShowReadReceipts(false)}
           messageId={message.id}
         />
+      )}
+
+      {/* Emoji Picker - Using Portal */}
+      {showEmojiPicker && ReactDOM.createPortal(
+        <EmojiPicker 
+          onSelect={handleReaction} 
+          onClose={() => setShowEmojiPicker(false)}
+          position={emojiPickerPosition}
+        />,
+        document.body
       )}
     </>
   );

@@ -125,14 +125,11 @@ html { overflow-x: hidden; }
 }
 
 .chat-panel {
-  flex-grow: 1;
-
-  display: flex;
-
-  flex-direction: column;
-
-  height: 100%;
-  min-height: 0;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
 }
 
 /* Mobile responsive layout */
@@ -428,35 +425,23 @@ html { overflow-x: hidden; }
 }
 
 .chat-panel-content {
-  flex-grow: 1;
-
-  display: flex;
-
-  flex-direction: column;
-
-  overflow: hidden;
-
-  background-color: var(--chat-panel-bg);
-
-  background-image: var(--chat-panel-bg-image);
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: var(--chat-panel-bg);
+    background-image: var(--chat-panel-bg-image);
 }
 
 .chat-empty-state {
-  display: flex;
-
-  flex-direction: column;
-
-  align-items: center;
-
-  justify-content: center;
-
-  height: 100%;
-
-  color: var(--text-secondary);
-
-  text-align: center;
-
-  padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 2rem;
 }
 
 /* 5. MessageList & MessageItem Components
@@ -488,6 +473,9 @@ html { overflow-x: hidden; }
   will-change: scroll-position;
 
   transform: translateZ(0);
+  
+  /* فاصله مناسب برای پیام آخر از اینپوت */
+  padding-bottom: 16px;
 }
 
 .message-date-header {
@@ -513,7 +501,7 @@ html { overflow-x: hidden; }
 .message-item-wrapper {
   position: relative !important;
   display: flex;
-  margin-bottom: 0.25rem;
+  margin-bottom: 1rem;
 }
 
 .message-item-wrapper.sent {
@@ -582,16 +570,6 @@ html { overflow-x: hidden; }
   color: #53bdeb; /* Read color */
 }
 
-/* Grouping messages */
-
-.message-item-wrapper + .message-item-wrapper.sent {
-  margin-top: 0.125rem;
-}
-
-.message-item-wrapper.sent + .message-item-wrapper.received,
-.message-item-wrapper.received + .message-item-wrapper.sent {
-  margin-top: 1rem;
-}
 
 /* Message options dropdown */
 
@@ -705,17 +683,12 @@ html { overflow-x: hidden; }
 }
 
 .send-button {
-  color: var(--primary-color) !important;
-
-  border-radius: 50%;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  transition: background-color 0.2s;
+    color: var(--primary-color) !important;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
 }
 
 .send-button:hover {
@@ -750,6 +723,46 @@ html { overflow-x: hidden; }
   text-overflow: ellipsis;
 }
 
+/* Pending attachment preview (Telegram-like) */
+.attachment-preview {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: var(--app-bg);
+  border-radius: var(--border-radius-md);
+  padding: .5rem .6rem;
+  margin-bottom: .5rem;
+}
+.attachment-preview .thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+}
+.attachment-preview .thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.attachment-preview .thumb .thumb-icon { font-size: 1.25rem; }
+.attachment-preview .meta { min-width: 0; flex: 1; }
+.attachment-preview .meta .name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.attachment-preview .meta .hint {
+  font-size: .8rem;
+  color: var(--text-secondary);
+}
+.attachment-preview .remove { margin-right: auto; }
+
 /* 7. File & Media Attachments
 
 -------------------------------------------------- */
@@ -761,6 +774,15 @@ html { overflow-x: hidden; }
   border-radius: var(--border-radius-md);
 
   cursor: pointer;
+}
+
+/* Telegram-like media caption under attachments */
+.media-caption {
+  margin-top: .35rem;
+  font-size: .9rem;
+  line-height: 1.4;
+  color: var(--text-primary);
+  word-break: break-word;
 }
 
 .file-attachment {
@@ -1010,6 +1032,47 @@ html { overflow-x: hidden; }
 
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
+
+/* --- Agent Dashboard Topbar --- */
+.dashboard-topbar {
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border-color);
+}
+.dashboard-topbar .agent-controls .form-select,
+.dashboard-topbar .agent-controls .btn {
+  height: 32px;
+}
+
+/* Ticket filters */
+.filter-pill {
+  border-radius: 999px;
+  padding: .2rem .7rem;
+}
+
+/* Stats cards visuals */
+.stat-card h6 { font-weight: 700; }
+.stat-card small { opacity: .95; }
+
+/* Ticket item spacing and avatar sizing for dashboard */
+.ticket-item .avatar-placeholder {
+  width: 36px;
+  height: 36px;
+}
+
+/* Sidebar header tweaks */
+.dashboard-sidebar-header .badge { font-weight: 600; }
+
+/* Compact modal on small screens */
+@media (max-width: 576px) {
+  .modal .modal-dialog { margin: .75rem; }
+}
+
+/* Ensure chat panel inside dashboard fills space nicely */
+.agent-dashboard .chat-panel-content { background-image: none; }
+.agent-dashboard .chat-panel-header { position: sticky; top: 0; z-index: 2; }
+
+/* Improve list scroll on sidebar */
+.dashboard-sidebar .ticket-list { padding-bottom: .25rem; }
 
 /* General utility */
 
@@ -1296,6 +1359,18 @@ html { overflow-x: hidden; }
   border-color: var(--primary-color);
 }
 
+.reaction-badge.reacted-by-me {
+  background-color: #e8f4f8;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.reaction-badge.reacted-by-me:hover {
+  background-color: var(--primary-color);
+  color: white;
+}
+
 /* Emoji Reaction Picker positioning fix */
 
 .emoji-reaction-picker {
@@ -1420,39 +1495,45 @@ html { overflow-x: hidden; }
 /* modal تمام صفحه برای نمایش تصویر */
 
 .image-modal-overlay {
-  position: fixed;
+  position: fixed !important;
 
-  top: 0;
+  top: 0 !important;
 
-  left: 0;
+  left: 0 !important;
 
-  right: 0;
+  right: 0 !important;
 
-  bottom: 0;
+  bottom: 0 !important;
 
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.9) !important;
 
-  z-index: 2000;
+  z-index: 9999 !important;
 
-  display: flex;
+  display: flex !important;
 
-  align-items: center;
+  align-items: center !important;
 
-  justify-content: center;
+  justify-content: center !important;
 
   cursor: zoom-out;
+  
+  padding: 20px;
 }
 
 .image-modal-img {
-  max-width: 98vw;
+  max-width: 95vw;
 
-  max-height: 98vh;
+  max-height: 95vh;
+
+  width: auto;
+  
+  height: auto;
 
   border-radius: 12px;
 
-  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 
-  background: #fff;
+  object-fit: contain;
 
   cursor: default;
 }
@@ -1609,4 +1690,47 @@ html { overflow-x: hidden; }
     width: 50px;
     height: 50px;
   }
+}
+
+/* Desktop layout fixes for AgentDashboard */
+.dashboard-topbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: .5rem; }
+.dashboard-topbar .agent-controls { gap: .5rem; }
+.dashboard-topbar .agent-controls .form-select { min-width: 140px; }
+
+/* Ensure main layout columns don't overlap */
+.agent-dashboard .chat-main-layout { align-items: stretch; }
+.agent-dashboard .chat-panel { min-width: 0; }
+.agent-dashboard .dashboard-sidebar { min-width: 280px; max-width: 360px; }
+
+/* Custom scrollbar styling (webkit + firefox) */
+/* Firefox */
+.dashboard-sidebar .ticket-list,
+.agent-dashboard .message-list-container {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,.25) transparent;
+}
+/* WebKit */
+.dashboard-sidebar .ticket-list::-webkit-scrollbar,
+.agent-dashboard .message-list-container::-webkit-scrollbar { width: 8px; }
+.dashboard-sidebar .ticket-list::-webkit-scrollbar-track,
+.agent-dashboard .message-list-container::-webkit-scrollbar-track { background: transparent; }
+.dashboard-sidebar .ticket-list::-webkit-scrollbar-thumb,
+.agent-dashboard .message-list-container::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,.25);
+  border-radius: 8px;
+}
+.dashboard-sidebar .ticket-list::-webkit-scrollbar-thumb:hover,
+.agent-dashboard .message-list-container::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,.35); }
+
+/* Sidebar header and filters spacing */
+.ticket-filters { margin-bottom: .25rem; }
+.stat-card h6 { font-size: 1.05rem; }
+
+/* Mobile behavior for AgentDashboard (match Chat.jsx) */
+@media (max-width: 768px) {
+  .agent-dashboard .chat-sidebar { position: absolute; top: 0; right: 0; width: 100%; max-width: 100%; height: 100%; z-index: 100; transform: translateX(100%); border-left: none; }
+  .agent-dashboard .chat-sidebar.is-active { transform: translateX(0); }
+  .agent-dashboard .chat-panel.is-room-selected .chat-sidebar { transform: translateX(100%); }
+  .agent-dashboard .chat-panel-header { position: fixed; top: 40px; /* keep under topbar */ right: 0; left: 0; z-index: 101; }
+  .agent-dashboard .chat-panel-content { position: absolute; top: calc(40px + 48px); /* topbar + header approx */ bottom: 0; left: 0; right: 0; }
 }

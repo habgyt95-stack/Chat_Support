@@ -2,6 +2,19 @@
 // SignalR service for real-time chat functionality
 
 import {HubConnectionBuilder, LogLevel} from '@microsoft/signalr';
+import apiClient from '../api/apiClient';
+
+function resolveHubUrl() {
+  try {
+    const base = apiClient?.defaults?.baseURL || (import.meta.env.BASE_URL ?? '/api');
+    // base is like https://localhost:5001/api or https://domain/api
+    const hubBase = String(base).replace(/\/?api\/?$/, '');
+    return `${hubBase}/chathub`;
+  } catch {
+    // fallback to same-origin
+    return `${window.location.origin}/chathub`;
+  }
+}
 
 class SignalRService {
   constructor() {
@@ -13,14 +26,12 @@ class SignalRService {
   // Initialize connection
   async startConnection(token) {
     try {
-      // تعیین آدرس SignalR بر اساس محیط
-      const hubUrl = import.meta.env.MODE === 'development' ? 'https://localhost:5001/chathub' : window.location.origin + '/chathub';
+      const hubUrl = resolveHubUrl();
       this.connection = new HubConnectionBuilder()
         .withUrl(hubUrl, {
-          accessTokenFactory: () => {
-            return token;
-          },
+          accessTokenFactory: () => token,
         })
+        .withAutomaticReconnect([0, 2000, 5000, 10000])
         .configureLogging(LogLevel.Information)
         .build();
 
@@ -77,7 +88,7 @@ class SignalRService {
     });
 
     // Handle reconnected
-    this.connection.onreconnected((connectionId) => {
+    this.connection.onreconnected(() => {
       this.isConnected = true;
       this.notifyListeners('connectionStatusChanged', true);
     });
@@ -104,12 +115,10 @@ class SignalRService {
 
     // UserOnlineStatus از بک‌اند می‌آید
     this.connection.on('UserOnlineStatus', (userData) => {
-      // userData: { UserId, IsOnline, Avatar, UserName }
-      // بر اساس IsOnline، رویداد مناسب را در کلاینت notify کنید
       if (userData.IsOnline) {
-        this.notifyListeners('userOnline', {id: userData.UserId, userName: userData.UserName, avatar: userData.Avatar, connectedAt: new Date().toISOString()}); // userData را تبدیل کنید
+        this.notifyListeners('userOnline', {id: userData.UserId, userName: userData.UserName, avatar: userData.Avatar, connectedAt: new Date().toISOString()});
       } else {
-        this.notifyListeners('userOffline', {id: userData.UserId}); // فقط UserId کافیست برای حذف
+        this.notifyListeners('userOffline', {id: userData.UserId});
       }
     });
 
@@ -118,7 +127,6 @@ class SignalRService {
     });
 
     this.connection.on('UnreadCountUpdate', (data) => {
-      // data: { roomId, unreadCount }
       this.notifyListeners('unreadCountUpdate', data);
     });
 
@@ -127,7 +135,6 @@ class SignalRService {
     });
 
     this.connection.on('MessageReacted', (reactionDto) => {
-      // reactionDto از نوع MessageReactionDto است
       this.notifyListeners('MessageReacted', reactionDto);
     });
   }
@@ -162,14 +169,14 @@ class SignalRService {
 
   // Mark message as read
   async markMessageAsRead(messageId, roomId) {
-  if (this.connection && this.isConnected) {
-    try {
-      await this.connection.invoke('MarkMessageAsRead', messageId.toString(), roomId.toString());
-    } catch (error) {
-      console.error('Error marking message as read:', error);
+    if (this.connection && this.isConnected) {
+      try {
+        await this.connection.invoke('MarkMessageAsRead', messageId.toString(), roomId.toString());
+      } catch (error) {
+        console.error('Error marking message as read:', error);
+      }
     }
   }
-}
 
   // Acknowledge a delivered message (when it appears in UI)
   async acknowledgeDelivered(messageId, roomId) {

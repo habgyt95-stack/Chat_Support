@@ -19,16 +19,21 @@ public record GetAllAgentsQuery() : IRequest<List<AgentDto>>;
 public class GetAllAgentsQueryHandler : IRequestHandler<GetAllAgentsQuery, List<AgentDto>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IUser _user;
 
-    public GetAllAgentsQueryHandler(IApplicationDbContext context)
+    public GetAllAgentsQueryHandler(IApplicationDbContext context, IUser user)
     {
         _context = context;
+        _user = user;
     }
 
     public async Task<List<AgentDto>> Handle(GetAllAgentsQuery request, CancellationToken cancellationToken)
     {
+        var userRegionId = _user.RegionId;
+
         var agents = await _context.SupportAgents
             .Include(a => a.User)
+            .Where(a => a.User!.RegionId == userRegionId) // فیلتر بر اساس ناحیه کاربر جاری
             .Select(a => new AgentDto(
                 a.Id,
                 a.UserId,

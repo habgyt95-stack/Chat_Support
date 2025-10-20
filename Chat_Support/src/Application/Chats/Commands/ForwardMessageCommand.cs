@@ -68,7 +68,11 @@ public class ForwardMessageCommandHandler : IRequestHandler<ForwardMessageComman
             .Include(m => m.Sender)
             .FirstAsync(m => m.Id == forwardedMessage.Id, cancellationToken);
 
-        var messageDto = _mapper.Map<ChatMessageDto>(messageToNotify);
+        var messageDto = _mapper.Map<ChatMessageDto>(messageToNotify, opts => 
+        {
+            if (forwarderUserId > 0)
+                opts.Items["currentUserId"] = forwarderUserId;
+        });
         await _chatHubService.SendMessageToRoom(request.TargetChatRoomId.ToString(), messageDto);
 
         // --- بخش ۴: آپدیت و ارسال وضعیت جدید چت‌روم ---

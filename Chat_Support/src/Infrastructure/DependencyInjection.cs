@@ -49,6 +49,7 @@ public static class DependencyInjection
         builder.Services.AddSingleton(TimeProvider.System);
 
         builder.Services.AddScoped<IAgentAssignmentService, AgentAssignmentService>();
+        builder.Services.AddScoped<IAgentStatusManager, AgentStatusManager>();
         builder.Services.AddScoped<IChatHubService, ChatHubService>();
         builder.Services.AddScoped<IFileStorageService, FileStorageService>();
         builder.Services.AddScoped<IIdentityService, IdentityService>();
@@ -57,6 +58,11 @@ public static class DependencyInjection
         builder.Services.AddSingleton<IPresenceTracker, PresenceTracker>();
         builder.Services.AddHttpClient<IMessageNotificationService, FcmNotificationService>();
         builder.Services.AddScoped<INewMessageNotifier, NewMessageNotifier>();
+
+        // Background Services
+        builder.Services.AddHostedService<AgentStatusMonitorService>();
+        builder.Services.AddHostedService<BackgroundServices.BotEncouragementService>();
+        builder.Services.AddHostedService<BackgroundServices.BotTicketReassignmentService>();
 
         // SignalR user id mapping based on JWT sub claim
         builder.Services.AddSingleton<IUserIdProvider, SubClaimUserIdProvider>();
@@ -85,10 +91,17 @@ public static class DependencyInjection
                 OnMessageReceived = context =>
                 {
                     var accessToken = context.Request.Query["access_token"];
-
                     var path = context.HttpContext.Request.Path;
-                    if (!string.IsNullOrEmpty(accessToken) &&
-                        (path.StartsWithSegments("/chathub") || path.StartsWithSegments("/guestchathub")))
+
+                    // برای GuestChatHub، authentication رو skip می‌کنیم (چون AllowAnonymous است)
+                    if (path.StartsWithSegments("/guestchathub"))
+                    {
+                        // هیچ token ای set نمی‌کنیم، Guest بدون authentication وارد می‌شود
+                        return Task.CompletedTask;
+                    }
+
+                    // فقط برای ChatHub (authenticated users) token را set می‌کنیم
+                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chathub"))
                     {
                         context.Token = accessToken;
                     }
@@ -97,6 +110,17 @@ public static class DependencyInjection
                 },
                 OnAuthenticationFailed = context =>
                 {
+                    var path = context.HttpContext.Request.Path;
+                    
+                    // برای GuestChatHub خطاهای authentication رو ignore می‌کنیم (مهمان ها نیازی به JWT ندارند)
+                    if (path.StartsWithSegments("/guestchathub"))
+                    {
+                        // Clear the exception برای guest ها
+                        context.NoResult();
+                        return Task.CompletedTask;
+                    }
+
+                    // فقط برای ChatHub (authenticated) خطا لاگ می‌کنیم
                     var loggerFactory = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
                     var logger = loggerFactory.CreateLogger("JwtBearerEvents");
                     logger.LogError($"Authentication failed: {context.Exception}");

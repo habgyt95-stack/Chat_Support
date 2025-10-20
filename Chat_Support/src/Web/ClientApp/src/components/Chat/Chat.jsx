@@ -89,6 +89,7 @@ const Chat = () => {
   const [hasTriedLoadingRooms, setHasTriedLoadingRooms] = useState(false);
 
   const isSupportChat = currentRoom?.chatRoomType === 1;
+  const isGroupChat = currentRoom?.isGroup || currentRoom?.chatRoomType === 2;
 
   const urlParams = new URLSearchParams(location.search);
 
@@ -290,6 +291,10 @@ const Chat = () => {
   const handleToggleMute = async () => {
     if (!currentRoom) return;
 
+    // Only apply mute to group chats
+    const isGroup = currentRoom.isGroup || currentRoom.chatRoomType === 2;
+    if (!isGroup) return;
+
     try {
       const newMutedState = !currentRoom.isMuted;
       await chatApi.toggleChatRoomMute(currentRoom.id, newMutedState);
@@ -441,14 +446,16 @@ const Chat = () => {
       </div>
 
       <div className="d-flex align-items-center gap-2">
-        <Button
-          variant="light"
-          onClick={handleToggleMute}
-          className="rounded-circle p-2"
-          title={currentRoom?.isMuted ? "فعال کردن نوتیفیکیشن" : "غیرفعال کردن نوتیفیکیشن"}
-        >
-          {currentRoom?.isMuted ? <BellSlash size={20} /> : <BellFill size={20} />}
-        </Button>
+        {isGroupChat && (
+          <Button
+            variant="light"
+            onClick={handleToggleMute}
+            className="rounded-circle p-2"
+            title={currentRoom?.isMuted ? "فعال کردن نوتیفیکیشن" : "غیرفعال کردن نوتیفیکیشن"}
+          >
+            {currentRoom?.isMuted ? <BellSlash size={20} /> : <BellFill size={20} />}
+          </Button>
+        )}
 
         {selectedRoom?.isGroup && (
           <Button

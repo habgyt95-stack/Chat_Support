@@ -1,5 +1,6 @@
 ﻿using Chat_Support.Application.Chats.DTOs;
 using Chat_Support.Application.Common.Interfaces;
+using Chat_Support.Application.Support.Services;
 using Chat_Support.Domain.Entities;
 using Chat_Support.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -34,19 +35,22 @@ public class StartSupportChatCommandHandler : IRequestHandler<StartSupportChatCo
     private readonly IChatHubService _chatHubService;
     private readonly IMapper _mapper;
     private readonly INewMessageNotifier _notifier;
+    private readonly IVirtualBotService _virtualBotService;
 
     public StartSupportChatCommandHandler(
         IApplicationDbContext context,
         IAgentAssignmentService agentAssignment,
         IChatHubService chatHubService,
         IMapper mapper,
-        INewMessageNotifier notifier)
+        INewMessageNotifier notifier,
+        IVirtualBotService virtualBotService)
     {
         _context = context;
         _agentAssignment = agentAssignment;
         _chatHubService = chatHubService;
         _mapper = mapper;
         _notifier = notifier;
+        _virtualBotService = virtualBotService;
     }
 
     public async Task<StartSupportChatResult> Handle(StartSupportChatCommand request, CancellationToken cancellationToken)
@@ -114,7 +118,11 @@ public class StartSupportChatCommandHandler : IRequestHandler<StartSupportChatCo
             var orderedMessages = existingRoom.Messages
                 .OrderBy(m => m.Created)
                 .ToList();
-            var mappedMessages = _mapper.Map<List<ChatMessageDto>>(orderedMessages);
+            var mappedMessages = _mapper.Map<List<ChatMessageDto>>(orderedMessages, opts => 
+            {
+                if (existingTicket.RequesterUserId.HasValue)
+                    opts.Items["currentUserId"] = existingTicket.RequesterUserId.Value;
+            });
 
             var assignedAgent = await _context.SupportAgents
                 .FirstOrDefaultAsync(a => a.Id == existingTicket.AssignedAgentUserId, cancellationToken);
@@ -129,10 +137,15 @@ public class StartSupportChatCommandHandler : IRequestHandler<StartSupportChatCo
         }
 
         // === اگر اتاق فعال نبود، روند فعلی ===
-        // 2. پیدا کردن بهترین Agent
+        
+        // 2. اطمینان از وجود ربات مجازی (ایجاد خودکار در صورت نیاز)
+        await _virtualBotService.EnsureVirtualBotExistsAsync(cancellationToken);
+        
+        // 3. پیدا کردن بهترین Agent (با رعایت منطقه؛ عدم fallback)
+        // اگر هیچ agent واقعی در دسترس نبود، ربات برگردانده می‌شود
         var assignedAgentNew = await _agentAssignment.GetBestAvailableAgentAsync(request.RegionId, cancellationToken);
 
-        // 3. ایجاد Chat Room
+        // 4. ایجاد Chat Room
         var chatRoom = new ChatRoom
         {
             Name = !isGuest
@@ -219,12 +232,65 @@ public class StartSupportChatCommandHandler : IRequestHandler<StartSupportChatCo
         // 8. Push notification برای Agent/اعضا (زمانی که در اتاق نیستند)
         await _notifier.NotifyAsync(initialMessageNew, chatRoom, guestUser, cancellationToken);
 
+        // 9. اگر به ربات مجازی متصل شد، پیام خوش‌آمدگویی ارسال کن
+        List<ChatMessageDto> initialMessages = new() 
+        { 
+            _mapper.Map<ChatMessageDto>(initialMessageNew, opts => 
+            {
+                // پیام اولیه از کاربر یا مهمان است
+            }) 
+        };
+
+        if (assignedAgentNew != null && assignedAgentNew.IsVirtualBot)
+        {
+            // بررسی اینکه آیا همه پشتیبان‌های واقعی پر هستند یا هیچ کس آنلاین نیست
+            var hasAnyAvailableRealAgent = await _context.SupportAgents
+                .AnyAsync(a => !a.IsVirtualBot && 
+                              a.IsActive && 
+                              a.AgentStatus == AgentStatus.Available &&
+                              a.CurrentActiveChats < a.MaxConcurrentChats, 
+                              cancellationToken);
+
+            string welcomeContent;
+            if (!hasAnyAvailableRealAgent)
+            {
+                // هیچ پشتیبان واقعی آنلاین نیست
+                welcomeContent = "سلام و درود! 👋\n\nمن دستیار مجازی پشتیبانی هستم. پیام شما با موفقیت دریافت شد. 📝\n\n" +
+                                "در حال حاضر همه پشتیبانان ما مشغول هستند. نگران نباشید! به محض آنلاین شدن یکی از همکاران، " +
+                                "بلافاصله به شما پاسخ خواهند داد. ⏰\n\n" +
+                                "در این بین می‌توانید سوالات و جزئیات بیشتری بفرستید تا پشتیبان از موضوع کاملاً آگاه شود. 💬";
+            }
+            else
+            {
+                // همه پشتیبانان پر هستند اما آنلاین هستند
+                welcomeContent = "سلام! 👋\n\nمن دستیار مجازی پشتیبانی هستم. پیام شما با موفقیت ثبت شد. 📝\n\n" +
+                                "در حال حاضر تمام پشتیبانان ما در حال پاسخگویی به سایر کاربران هستند. شما در صف اولویت قرار گرفتید! 🎯\n\n" +
+                                "به محض خالی شدن یکی از پشتیبانان، فوراً با شما در ارتباط خواهند بود. معمولاً این زمان کمتر از چند دقیقه است. ⏱️\n\n" +
+                                "لطفاً کمی صبور باشید و در این بین می‌توانید توضیحات تکمیلی ارسال کنید. 😊";
+            }
+
+            var botWelcomeMessage = new ChatMessage
+            {
+                Content = welcomeContent,
+                SenderId = assignedAgentNew.UserId,
+                ChatRoomId = chatRoom.Id,
+                Type = MessageType.Text
+            };
+            _context.ChatMessages.Add(botWelcomeMessage);
+            await _context.SaveChangesAsync(cancellationToken);
+            
+            initialMessages.Add(_mapper.Map<ChatMessageDto>(botWelcomeMessage, opts => {}));
+            
+            // ارسال پیام ربات به SignalR
+            await _chatHubService.SendMessageToRoom(chatRoom.Id.ToString(), initialMessages.Last());
+        }
+
         return new StartSupportChatResult(
             chatRoom.Id,
             ticket.Id,
             assignedAgentNew?.UserId,
             assignedAgentNew != null && assignedAgentNew.User != null ? $"{assignedAgentNew.User.FirstName} {assignedAgentNew.User.LastName}" : null,
-            new List<ChatMessageDto> { _mapper.Map<ChatMessageDto>(initialMessageNew) }
+            initialMessages
         );
     }
 }

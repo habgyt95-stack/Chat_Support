@@ -23,18 +23,20 @@ public class GetMessageReadReceiptsQueryHandler : IRequestHandler<GetMessageRead
 
     public async Task<List<MessageReadReceiptDto>> Handle(GetMessageReadReceiptsQuery request, CancellationToken cancellationToken)
     {
+        // Order by entity property before projection to avoid EF translation issues when ordering by DTO members
         var receipts = await _context.MessageStatuses
             .AsNoTracking()
-            .Where(ms => ms.MessageId == request.MessageId && ms.Status == Domain.Enums.ReadStatus.Read)
-            .Include(ms => ms.User)
+            .Where(ms => ms.MessageId == request.MessageId
+                         && ms.Status == Domain.Enums.ReadStatus.Read
+                         && ms.UserId != null)
+            .OrderBy(ms => ms.StatusAt)
             .Select(ms => new MessageReadReceiptDto(
                 ms.UserId!.Value,
                 ms.User.UserName!,
-                $"{ms.User.FirstName} {ms.User.LastName}",
+                ($"{ms.User.FirstName} {ms.User.LastName}").Trim(),
                 ms.User.ImageName,
                 ms.StatusAt
             ))
-            .OrderBy(r => r.ReadAt)
             .ToListAsync(cancellationToken);
 
         return receipts;

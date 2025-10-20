@@ -1,4 +1,3 @@
-
 import React, {useState, useEffect} from 'react';
 import {Modal, Button, Tabs, Tab, ListGroup, Badge, Spinner, Alert, Form} from 'react-bootstrap';
 import {PersonPlusFill, Trash, X, Search, ShieldLockFill, PeopleFill, GearFill, BoxArrowLeft} from 'react-bootstrap-icons';
@@ -16,7 +15,14 @@ const GroupManagementModal = ({show, onHide, chatRoom, currentUserId, onGroupUpd
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
 
-  const isOwner = members.find((m) => m.id === currentUserId)?.role === 2; // 2: Owner role
+  // Helper to normalize ids (string/number) to number for reliable comparisons
+  const toInt = (v) => {
+    if (v === null || v === undefined) return NaN;
+    return typeof v === 'string' ? parseInt(v, 10) : Number(v);
+  };
+  const currentUserIdNum = toInt(currentUserId);
+
+  const isOwner = members.find((m) => toInt(m.id) === currentUserIdNum)?.role === 2; // 2: Owner role
 
   useEffect(() => {
     if (show && chatRoom) {
@@ -234,7 +240,7 @@ const GroupManagementModal = ({show, onHide, chatRoom, currentUserId, onGroupUpd
                         </Badge>
                       )}
                     </div>
-                    {isOwner && member.id !== currentUserId && (
+                    {isOwner && toInt(member.id) !== currentUserIdNum && (
                       <Button variant="outline-danger" size="sm" onClick={() => removeMember(member.id)}>
                         <Trash /> حذف
                       </Button>
@@ -320,7 +326,7 @@ const GroupManagementModal = ({show, onHide, chatRoom, currentUserId, onGroupUpd
             </Tab>
           )}
 
-          {(isOwner || members.find((m) => m.id === currentUserId)?.role === 1) && (
+          {(isOwner || members.find((m) => toInt(m.id) === currentUserIdNum)?.role === 1) && (
             <Tab
               eventKey="edit"
               title={

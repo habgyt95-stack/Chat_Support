@@ -32,6 +32,10 @@ public class GetChatMessagesQueryHandler : IRequestHandler<GetChatMessagesQuery,
 
         var messagesWithStatus = await _context.ChatMessages
             .Where(m => m.ChatRoomId == request.ChatRoomId && !m.IsDeleted)
+            // Ensure related sender data is loaded so mapping doesn't fallback to "مهمان"
+            .Include(m => m.Sender)
+            .Include(m => m.ReplyToMessage)!.ThenInclude(r => r!.Sender)
+            .Include(m => m.Reactions).ThenInclude(r => r.User) // بارگیری واکنش‌ها و کاربران آن‌ها
             .OrderByDescending(m => m.Created)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
@@ -55,7 +59,7 @@ public class GetChatMessagesQueryHandler : IRequestHandler<GetChatMessagesQuery,
         var dtos = messagesWithStatus
             .Select(x =>
             {
-                var dto = _mapper.Map<ChatMessageDto>(x.Message);
+                var dto = _mapper.Map<ChatMessageDto>(x.Message, opts => opts.Items["currentUserId"] = userId);
                 dto.DeliveryStatus = x.DeliveryStatus;
                 // Timestamp از مپینگ به UTC ست می‌شود
                 return dto;

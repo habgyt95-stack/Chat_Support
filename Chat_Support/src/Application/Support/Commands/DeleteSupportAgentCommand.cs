@@ -26,10 +26,34 @@ public class DeleteSupportAgentCommandHandler : IRequestHandler<DeleteSupportAge
         if (agent == null)
             return false;
 
-        // First, reassign all active tickets
+        // First, mark agent as offline to trigger ticket reassignment
         await _agentAssignment.UpdateAgentStatusAsync(agent.UserId, AgentStatus.Offline, cancellationToken);
 
-        // Then delete the agent
+        // Find all tickets still assigned to this agent and reassign or unassign them
+        var assignedTickets = await _context.SupportTickets
+            .Where(t => t.AssignedAgentUserId == agent.Id)  // ✅ FK به SupportAgent.Id اشاره داره
+            .ToListAsync(cancellationToken);
+
+        foreach (var ticket in assignedTickets)
+        {
+            // Try to assign to another available agent
+            var newAgent = await _agentAssignment.GetBestAvailableAgentAsync(ticket.RegionId, cancellationToken);
+            
+            if (newAgent != null)
+            {
+                ticket.AssignedAgentUserId = newAgent.Id;  // ✅ باید Id باشه نه UserId!
+            }
+            else
+            {
+                // No agent available, unassign the ticket
+                ticket.AssignedAgentUserId = null;
+            }
+        }
+
+        // Save ticket reassignments
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Now safe to delete the agent
         _context.SupportAgents.Remove(agent);
         await _context.SaveChangesAsync(cancellationToken);
 
