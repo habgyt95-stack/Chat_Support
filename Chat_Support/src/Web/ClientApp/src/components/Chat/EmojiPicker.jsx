@@ -1,75 +1,9 @@
 import React, { useRef, useEffect, useState } from 'react';
 import './EmojiPicker.css';
+import { TELEGRAM_REACTIONS } from './reactions';
 
 // لیست کامل ایموجی‌های واکنش (مشابه تلگرام، بدون موارد حساسیت‌برانگیز)
-const TELEGRAM_REACTIONS = [
-  // دسته اول: احساسات مثبت
-  { emoji: '👍', category: 'positive' },
-  { emoji: '👎', category: 'positive' },
-  { emoji: '❤️', category: 'positive' },
-  { emoji: '🔥', category: 'positive' },
-  { emoji: '🥰', category: 'positive' },
-  { emoji: '👏', category: 'positive' },
-  { emoji: '😁', category: 'positive' },
-  { emoji: '🤔', category: 'positive' },
-  { emoji: '🤯', category: 'positive' },
-  { emoji: '😱', category: 'positive' },
-  { emoji: '🎉', category: 'positive' },
-  { emoji: '🤩', category: 'positive' },
-  { emoji: '🤗', category: 'positive' },
-  { emoji: '💯', category: 'positive' },
-  { emoji: '🤝', category: 'positive' },
-  { emoji: '⚡', category: 'positive' },
-  { emoji: '🏆', category: 'positive' },
-  { emoji: '🕊', category: 'positive' },
-  { emoji: '👌', category: 'positive' },
-  { emoji: '🆒', category: 'positive' },
-  
-  // دسته دوم: خنده و شادی
-  { emoji: '😂', category: 'laugh' },
-  { emoji: '😆', category: 'laugh' },
-  { emoji: '😄', category: 'laugh' },
-  { emoji: '😃', category: 'laugh' },
-  { emoji: '🤣', category: 'laugh' },
-  
-  // دسته سوم: تعجب
-  { emoji: '😮', category: 'surprise' },
-  { emoji: '😯', category: 'surprise' },
-  { emoji: '😲', category: 'surprise' },
-  { emoji: '🤐', category: 'surprise' },
-  
-  // دسته چهارم: ناراحتی و غمگینی
-  { emoji: '😢', category: 'sad' },
-  { emoji: '😭', category: 'sad' },
-  { emoji: '😔', category: 'sad' },
-  { emoji: '😞', category: 'sad' },
-  { emoji: '🥺', category: 'sad' },
-  { emoji: '😕', category: 'sad' },
-  
-  // دسته پنجم: عصبانیت
-  { emoji: '😠', category: 'angry' },
-  { emoji: '😡', category: 'angry' },
-  
-  // دسته ششم: دعا و امید
-  { emoji: '🙏', category: 'pray' },
-  { emoji: '🤲', category: 'pray' },
-  
-  // دسته هفتم: متفرقه
-  { emoji: '🤝', category: 'misc' },
-  { emoji: '💪', category: 'misc' },
-  { emoji: '👀', category: 'misc' },
-  { emoji: '🤡', category: 'misc' },
-  { emoji: '👻', category: 'misc' },
-  { emoji: '💀', category: 'misc' },
-  { emoji: '🤖', category: 'misc' },
-  { emoji: '👽', category: 'misc' },
-  { emoji: '🌚', category: 'misc' },
-  { emoji: '🌝', category: 'misc' },
-  { emoji: '🌞', category: 'misc' },
-  { emoji: '⭐', category: 'misc' },
-  { emoji: '✨', category: 'misc' },
-  { emoji: '💫', category: 'misc' },
-];
+// reactions imported from './reactions'
 
 const EmojiPicker = ({ onSelect, onClose, position }) => {
   const pickerRef = useRef(null);

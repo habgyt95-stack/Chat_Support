@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import ReactDOM from 'react-dom';
-import {Check2, Check2All, Clock, Reply, Pencil, Forward, Trash, EmojiSmile, Download, Eye} from 'react-bootstrap-icons';
+import {Check2, Check2All, Clock, Reply, Pencil, Forward, Trash, Download, Eye, ChevronDown, ChevronUp} from 'react-bootstrap-icons';
 import {MessageDeliveryStatus} from '../../types/chat';
 import {useChat} from '../../hooks/useChat';
 import {getUserIdFromToken} from '../../Utils/jwt';
@@ -8,18 +8,18 @@ import './Chat.css';
 import {downloadFile} from '../../Utils/fileUtils';
 import {VoiceMessagePlayer} from './VoiceRecorderComponent';
 import ReadReceiptsModal from './ReadReceiptsModal';
-import EmojiPicker from './EmojiPicker';
+import { TELEGRAM_REACTIONS } from './reactions';
 
 const MENU_WIDTH = 180; // حداقل عرض منو از CSS
-const MENU_HEIGHT = 220;
+// Height hint for positioning; menu may grow when reaction grid expands
+const MENU_HEIGHT = 320;
 
 const MessageItem = ({message, isGroupChat = false}) => {
   const {deleteMessage, setReplyingToMessage, setEditingMessage, setForwardingMessage, sendReaction} = useChat();
   const currentUserId = getUserIdFromToken(localStorage.getItem('token'));
   const isOwnMessage = Number(message.senderId) === Number(currentUserId);
   const [contextMenu, setContextMenu] = useState({visible: false, styles: {}});
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [emojiPickerPosition, setEmojiPickerPosition] = useState({});
+  const [showFullReactions, setShowFullReactions] = useState(false);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [isHoveringMedia, setIsHoveringMedia] = useState(false);
   const [showReadReceipts, setShowReadReceipts] = useState(false);
@@ -127,9 +127,39 @@ const MessageItem = ({message, isGroupChat = false}) => {
   };
 
   const handleTouchStart = (e) => {
+    const target = e.currentTarget;
     longPressTimer.current = setTimeout(() => {
       const touch = e.touches[0];
-      setContextMenu({visible: true, x: touch.clientX, y: touch.clientY});
+      const rect = target.getBoundingClientRect();
+      const touchX = touch.clientX;
+      const touchY = touch.clientY;
+
+      const opensLeft = touchX + MENU_WIDTH > window.innerWidth;
+      const opensUp = touchY + MENU_HEIGHT > window.innerHeight;
+
+      const styles = {};
+
+      if (opensUp) {
+        styles.bottom = rect.height - (touchY - rect.top);
+      } else {
+        styles.top = touchY - rect.top;
+      }
+
+      if (isOwnMessage) {
+        if (!opensLeft) {
+          styles.right = 0;
+        } else {
+          styles.left = 0;
+        }
+      } else {
+        if (!opensLeft) {
+          styles.left = 0;
+        } else {
+          styles.right = 0;
+        }
+      }
+
+      setContextMenu({ visible: true, styles });
     }, 500); // 500ms for long press
   };
 
@@ -139,15 +169,22 @@ const MessageItem = ({message, isGroupChat = false}) => {
 
   const closeContextMenu = () => {
     setContextMenu({ visible: false, styles: {} });
-    setShowEmojiPicker(false);
+    setShowFullReactions(false);
   };
 
   useEffect(() => {
-    if (contextMenu.visible) {
-      document.addEventListener('click', closeContextMenu);
-      return () => document.removeEventListener('click', closeContextMenu);
-    }
-  }, [contextMenu.visible]);
+    if (!contextMenu.visible) return;
+    const handleGlobalClick = () => {
+      // اگر گرید باز است، اول فقط گرید بسته شود و منو باقی بماند
+      if (showFullReactions) {
+        setShowFullReactions(false);
+      } else {
+        closeContextMenu();
+      }
+    };
+    document.addEventListener('click', handleGlobalClick);
+    return () => document.removeEventListener('click', handleGlobalClick);
+  }, [contextMenu.visible, showFullReactions]);
 
   const handleAction = (action) => {
     closeContextMenu();
@@ -156,7 +193,6 @@ const MessageItem = ({message, isGroupChat = false}) => {
 
   const handleReaction = (emoji) => {
     sendReaction(message.id, message.chatRoomId, emoji);
-    setShowEmojiPicker(false);
     closeContextMenu();
   };
 
@@ -359,6 +395,49 @@ const MessageItem = ({message, isGroupChat = false}) => {
             style={contextMenu.styles}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Telegram-like reactions row above menu */}
+            <div className="context-reaction-wrap">
+              <div className="context-reaction-row" dir="ltr">
+                <div className="context-reaction-scroll hide-scrollbar">
+                  {TELEGRAM_REACTIONS.slice(0, 5).map((r, idx) => (
+                    <button
+                      key={`qr-${idx}`}
+                      type="button"
+                      className="reaction-quick-btn"
+                      onClick={() => handleReaction(r.emoji)}
+                      aria-label={`React ${r.emoji}`}
+                    >
+                      {r.emoji}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="reaction-more-toggle"
+                  onClick={(e) => { e.stopPropagation(); setShowFullReactions((v) => !v); }}
+                  aria-expanded={showFullReactions}
+                  aria-label={showFullReactions ? 'کمتر' : 'بیشتر'}
+                >
+                  {showFullReactions ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                </button>
+              </div>
+              {showFullReactions && (
+                <div className="context-reaction-grid" dir="ltr">
+                  {TELEGRAM_REACTIONS.map((r, idx) => (
+                    <button
+                      key={`rg-${idx}`}
+                      type="button"
+                      className="reaction-grid-btn"
+                      onClick={() => handleReaction(r.emoji)}
+                      aria-label={`React ${r.emoji}`}
+                    >
+                      {r.emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {!showFullReactions && (
             <ul>
               <li onClick={() => handleAction(handleReply)}>
                 <Reply /> پاسخ
@@ -376,20 +455,6 @@ const MessageItem = ({message, isGroupChat = false}) => {
                   <Pencil /> ویرایش
                 </li>
               )}
-              <li 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const rect = e.currentTarget.getBoundingClientRect();
-                  setEmojiPickerPosition({
-                    top: rect.top,
-                    left: rect.left + rect.width + 10,
-                  });
-                  setShowEmojiPicker(!showEmojiPicker);
-                }}
-                style={{position: 'relative'}}
-              >
-                <EmojiSmile /> واکنش
-              </li>
               {(message.type === 1 || message.type === 4 || message.type === 2) && message.attachmentUrl && (
                 <li onClick={() => handleAction(handleDownload)}>
                   <Download /> دانلود
@@ -401,6 +466,7 @@ const MessageItem = ({message, isGroupChat = false}) => {
                 </li>
               )}
             </ul>
+            )}
           </div>
         )}
       </div>
@@ -437,15 +503,7 @@ const MessageItem = ({message, isGroupChat = false}) => {
         />
       )}
 
-      {/* Emoji Picker - Using Portal */}
-      {showEmojiPicker && ReactDOM.createPortal(
-        <EmojiPicker 
-          onSelect={handleReaction} 
-          onClose={() => setShowEmojiPicker(false)}
-          position={emojiPickerPosition}
-        />,
-        document.body
-      )}
+      {/* Emoji picker portal removed; reactions integrated in context menu */}
     </>
   );
 };

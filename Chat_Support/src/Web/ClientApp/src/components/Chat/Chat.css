@@ -1185,6 +1185,100 @@ html { overflow-x: hidden; }
   box-shadow: var(--shadow-md);
   padding: 0.5rem 0;
   min-width: 180px;
+  max-width: min(92vw, 360px);
+}
+
+/* Telegram-like reactions block above the menu */
+.custom-context-menu .context-reaction-wrap {
+  padding: 0.5rem 0.5rem 0.35rem 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.custom-context-menu .context-reaction-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.custom-context-menu .context-reaction-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 2px 6px 2px;
+  max-width: calc(100% - 38px); /* space for toggle */
+}
+
+.custom-context-menu .reaction-quick-btn,
+.custom-context-menu .reaction-more-toggle {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color .15s ease, transform .1s ease;
+}
+
+.custom-context-menu .reaction-quick-btn:hover,
+.custom-context-menu .reaction-more-toggle:hover {
+  background: var(--app-bg);
+}
+
+.custom-context-menu .reaction-quick-btn:active,
+.custom-context-menu .reaction-more-toggle:active {
+  transform: scale(.96);
+}
+
+.custom-context-menu .context-reaction-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(28px, 1fr));
+  grid-auto-flow: row;
+  gap: 6px;
+  padding: 6px 2px 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.custom-context-menu .reaction-grid-btn {
+  width: 100%;
+  height: 34px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color .15s ease, transform .1s ease;
+}
+
+.custom-context-menu .reaction-grid-btn:hover {
+  background: var(--app-bg);
+}
+
+@media (max-width: 768px) {
+  .custom-context-menu .context-reaction-grid {
+    grid-template-columns: repeat(5, minmax(28px, 1fr));
+    max-height: 200px;
+  }
+
+  .custom-context-menu .reaction-grid-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+  }
+
+  .custom-context-menu .reaction-quick-btn,
+  .custom-context-menu .reaction-more-toggle {
+    width: 30px;
+    height: 30px;
+    font-size: 18px;
+  }
 }
 
 .custom-context-menu ul {
