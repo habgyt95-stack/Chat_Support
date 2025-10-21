@@ -159,6 +159,8 @@ public static class DependencyInjection
             options.AddPolicy(Policies.CanPurge, policy => policy.RequireRole(Roles.Administrator));
             // پالیسی Agent برای رفع خطا اضافه شد
             options.AddPolicy("Agent", policy => policy.RequireRole("Agent"));
+            // پالیسی AdminOnly برای endpoint‌های مدیریتی
+            options.AddPolicy("AdminOnly", policy => policy.RequireRole(Roles.Administrator));
         });
     }
 }

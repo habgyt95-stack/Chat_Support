@@ -77,24 +77,24 @@ public class Support : EndpointGroupBase
 
         // Agent Management endpoints (admin only)
         group.MapGet("/agents", GetAllAgents)
-            .RequireAuthorization(); // TODO: Add admin policy
+            .RequireAuthorization("AdminOnly");
 
         group.MapPost("/agents", CreateAgent)
-            .RequireAuthorization(); // TODO: Add admin policy
+            .RequireAuthorization("AdminOnly");
 
         group.MapPut("/agents/{agentId}", UpdateAgent)
-            .RequireAuthorization(); // TODO: Add admin policy
+            .RequireAuthorization("AdminOnly");
 
         group.MapDelete("/agents/{agentId}", DeleteAgent)
-            .RequireAuthorization(); // TODO: Add admin policy
+            .RequireAuthorization("AdminOnly");
 
         // Admin: get tickets for a specific agent (by SupportAgent.Id)
         group.MapGet("/agents/{agentId:int}/tickets", GetTicketsByAgentId)
-            .RequireAuthorization(); // TODO: Add admin policy
+            .RequireAuthorization("AdminOnly");
 
         // Admin: get ticket details
         group.MapGet("/tickets/{ticketId:int}", GetTicketDetails)
-            .RequireAuthorization(); // TODO: Add admin policy
+            .RequireAuthorization("AdminOnly");
     }
 
     private static Task<IResult> CheckSupportAuth(HttpContext context)

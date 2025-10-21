@@ -36,6 +36,39 @@ public class FileStorageService : IFileStorageService
     {
         try
         {
+            // بررسی اندازه فایل (حداکثر 50MB)
+            if (fileStream.Length > 50 * 1024 * 1024)
+            {
+                throw new InvalidOperationException("حجم فایل نباید بیشتر از 50 مگابایت باشد");
+            }
+
+            // بررسی نوع فایل مجاز
+            var allowedExtensions = new[] 
+            { 
+                ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",  // Images
+                ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv",  // Documents
+                ".mp4", ".avi", ".mov", ".webm", ".mkv",  // Videos
+                ".mp3", ".wav", ".ogg", ".m4a",  // Audio
+                ".zip", ".rar", ".7z"  // Archives
+            };
+            
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            
+            if (!allowedExtensions.Contains(extension))
+            {
+                throw new InvalidOperationException($"نوع فایل '{extension}' مجاز نیست");
+            }
+
+            // بررسی file signature (Magic Number) برای جلوگیری از spoofing
+            var isValidSignature = await ValidateFileSignature(fileStream, extension);
+            if (!isValidSignature)
+            {
+                throw new InvalidOperationException("محتوای فایل با پسوند آن مطابقت ندارد");
+            }
+
+            // Reset stream position after signature validation
+            fileStream.Position = 0;
+
             // Create folder structure
             var fullFolderPath = Path.Combine(_uploadPath, folderPath);
             if (!Directory.Exists(fullFolderPath))
@@ -43,7 +76,7 @@ public class FileStorageService : IFileStorageService
                 Directory.CreateDirectory(fullFolderPath);
             }
 
-            // Generate safe file name
+            // Generate safe file name with GUID to prevent filename attacks
             var safeFileName = GenerateSafeFileName(fileName);
             var filePath = Path.Combine(fullFolderPath, safeFileName);
 
@@ -63,6 +96,30 @@ public class FileStorageService : IFileStorageService
         {
             throw new InvalidOperationException($"Failed to upload file: {ex.Message}", ex);
         }
+    }
+
+    private async Task<bool> ValidateFileSignature(Stream fileStream, string extension)
+    {
+        // بررسی Magic Number برای جلوگیری از upload فایل‌های مخرب
+        var buffer = new byte[8];
+        var bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length);
+        
+        if (bytesRead < 2)
+            return false;
+
+        return extension switch
+        {
+            ".jpg" or ".jpeg" => buffer[0] == 0xFF && buffer[1] == 0xD8 && buffer[2] == 0xFF,
+            ".png" => buffer[0] == 0x89 && buffer[1] == 0x50 && buffer[2] == 0x4E && buffer[3] == 0x47,
+            ".gif" => buffer[0] == 0x47 && buffer[1] == 0x49 && buffer[2] == 0x46,
+            ".pdf" => buffer[0] == 0x25 && buffer[1] == 0x50 && buffer[2] == 0x44 && buffer[3] == 0x46,
+            ".zip" => buffer[0] == 0x50 && buffer[1] == 0x4B && (buffer[2] == 0x03 || buffer[2] == 0x05),
+            ".rar" => buffer[0] == 0x52 && buffer[1] == 0x61 && buffer[2] == 0x72 && buffer[3] == 0x21,
+            ".mp3" => buffer[0] == 0xFF && (buffer[1] == 0xFB || buffer[1] == 0xF3 || buffer[1] == 0xF2),
+            ".mp4" => bytesRead >= 8 && buffer[4] == 0x66 && buffer[5] == 0x74 && buffer[6] == 0x79 && buffer[7] == 0x70,
+            // برای سایر فرمت‌ها فعلاً بررسی نمی‌کنیم
+            _ => true
+        };
     }
 
     public Task<(Stream Stream, string ContentType, string FileName)> DownloadFileAsync(
