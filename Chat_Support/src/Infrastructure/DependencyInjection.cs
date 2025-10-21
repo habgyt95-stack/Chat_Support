@@ -56,7 +56,11 @@ public static class DependencyInjection
         builder.Services.AddScoped<ISmsService, KavenegarSmsService>();
         builder.Services.AddScoped<IJwtService, JwtService>();
         builder.Services.AddSingleton<IPresenceTracker, PresenceTracker>();
-        builder.Services.AddHttpClient<IMessageNotificationService, FcmNotificationService>();
+
+        // Firebase HTTP v1 sender registration
+        builder.Services.AddSingleton<IFirebaseAccessTokenProvider, FirebaseAccessTokenProvider>();
+        builder.Services.AddHttpClient(nameof(FcmNotificationService));
+        builder.Services.AddScoped<IMessageNotificationService, FcmNotificationService>();
         builder.Services.AddScoped<INewMessageNotifier, NewMessageNotifier>();
 
         // Background Services

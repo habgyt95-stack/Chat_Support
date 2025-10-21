@@ -87,6 +87,14 @@ public class Support : EndpointGroupBase
 
         group.MapDelete("/agents/{agentId}", DeleteAgent)
             .RequireAuthorization(); // TODO: Add admin policy
+
+        // Admin: get tickets for a specific agent (by SupportAgent.Id)
+        group.MapGet("/agents/{agentId:int}/tickets", GetTicketsByAgentId)
+            .RequireAuthorization(); // TODO: Add admin policy
+
+        // Admin: get ticket details
+        group.MapGet("/tickets/{ticketId:int}", GetTicketDetails)
+            .RequireAuthorization(); // TODO: Add admin policy
     }
 
     private static Task<IResult> CheckSupportAuth(HttpContext context)
@@ -638,5 +646,111 @@ public class Support : EndpointGroupBase
         var command = new DeleteSupportAgentCommand(agentId);
         var success = await mediator.Send(command);
         return success ? Results.Ok(new { Success = true }) : Results.NotFound();
+    }
+
+    // Admin helper endpoints
+    private static async Task<IResult> GetTicketsByAgentId(
+        int agentId,
+        [FromQuery] SupportTicketStatus? status,
+        IApplicationDbContext db,
+        IMapper mapper)
+    {
+        // agentId = SupportAgent.Id
+        var agent = await db.SupportAgents
+            .Include(a => a.User)
+            .FirstOrDefaultAsync(a => a.Id == agentId);
+        if (agent == null)
+            return Results.NotFound("Agent not found");
+
+        var q = db.SupportTickets
+            .Include(t => t.RequesterUser)
+            .Include(t => t.RequesterGuest)
+            .Include(t => t.ChatRoom)
+            .Include(t => t.Region)
+            .Where(t => t.AssignedAgentUserId == agentId);
+
+        if (status.HasValue)
+            q = q.Where(t => t.Status == status.Value);
+
+        var items = await q
+            .OrderByDescending(t => t.Created)
+            .Select(t => new
+            {
+                t.Id,
+                t.Status,
+                t.Created,
+                t.ClosedAt,
+                t.RegionId,
+                RegionTitle = t.Region != null ? (t.Region.Title ?? t.Region.Name) : null,
+                ChatRoomId = t.ChatRoomId,
+                RequesterName = t.RequesterUser != null
+                    ? ($"{t.RequesterUser.FirstName} {t.RequesterUser.LastName}")
+                    : (t.RequesterGuest != null ? t.RequesterGuest.Name : null),
+                RequesterEmail = t.RequesterUser != null
+                    ? t.RequesterUser.Email
+                    : (t.RequesterGuest != null ? t.RequesterGuest.Email : null),
+                RequesterPhone = t.RequesterUser != null
+                    ? t.RequesterUser.Mobile
+                    : (t.RequesterGuest != null ? t.RequesterGuest.Phone : null),
+                LastMessage = t.ChatRoom.Messages
+                    .Where(m => !m.IsDeleted)
+                    .OrderByDescending(m => m.Created)
+                    .Select(m => new { m.Content, m.Created })
+                    .FirstOrDefault(),
+                UnreadCount = db.ChatMessages
+                    .Where(m => m.ChatRoomId == t.ChatRoomId && !m.IsDeleted && m.SenderId != agent.UserId)
+                    .Count(m => m.Id > (db.ChatRoomMembers
+                        .Where(mem => mem.ChatRoomId == t.ChatRoomId && mem.UserId == agent.UserId)
+                        .Select(mem => mem.LastReadMessageId)
+                        .FirstOrDefault() ?? 0))
+            })
+            .ToListAsync();
+
+        return Results.Ok(new
+        {
+            Agent = new
+            {
+                agent.Id,
+                agent.UserId,
+                Name = agent.User != null ? ($"{agent.User.FirstName} {agent.User.LastName}") : null,
+                agent.AgentStatus,
+                agent.CurrentActiveChats,
+                agent.MaxConcurrentChats
+            },
+            Tickets = items
+        });
+    }
+
+    private static async Task<IResult> GetTicketDetails(
+        int ticketId,
+        IApplicationDbContext db)
+    {
+        var ticket = await db.SupportTickets
+            .Include(t => t.RequesterUser)
+            .Include(t => t.RequesterGuest)
+            .Include(t => t.AssignedAgent)!.ThenInclude(a => a!.User)
+            .Include(t => t.ChatRoom)
+            .Include(t => t.Region)
+            .FirstOrDefaultAsync(t => t.Id == ticketId);
+
+        if (ticket == null)
+            return Results.NotFound();
+
+        return Results.Ok(new
+        {
+            ticket.Id,
+            ticket.Status,
+            ticket.Created,
+            ticket.ClosedAt,
+            ticket.RegionId,
+            RegionTitle = ticket.Region != null ? (ticket.Region.Title ?? ticket.Region.Name) : null,
+            ticket.ChatRoomId,
+            Requester = ticket.RequesterUser != null
+                ? new { Id = ticket.RequesterUser.Id, Name = (string?)($"{ticket.RequesterUser.FirstName} {ticket.RequesterUser.LastName}"), Email = (string?)ticket.RequesterUser.Email, Phone = (string?)ticket.RequesterUser.Mobile }
+                : ticket.RequesterGuest != null ? new { Id = ticket.RequesterGuest.Id, Name = ticket.RequesterGuest.Name, Email = ticket.RequesterGuest.Email, Phone = ticket.RequesterGuest.Phone } : null,
+            AssignedAgent = ticket.AssignedAgent != null
+                ? new { ticket.AssignedAgent.Id, ticket.AssignedAgent.UserId, Name = ticket.AssignedAgent.User != null ? ($"{ticket.AssignedAgent.User.FirstName} {ticket.AssignedAgent.User.LastName}") : null }
+                : null
+        });
     }
 }

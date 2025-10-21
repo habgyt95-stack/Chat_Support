@@ -45,7 +45,7 @@ public class RequestOtpCommandHandler : IRequestHandler<RequestOtpCommand, Reque
 
         await _context.ChatLoginOtps.AddAsync(otp, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
-        await _smsService.SendOtpAsync(user.Mobile, code.ToString());
+        //await _smsService.SendOtpAsync(user.Mobile, code.ToString());
 
         return new RequestOtpResult(true, code);
     }

@@ -6,6 +6,7 @@
     <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
     <RootNamespace>Chat_Support.Web</RootNamespace>
     <AssemblyName>Chat_Support.Web</AssemblyName>
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
   </PropertyGroup>
   <PropertyGroup>
     <SkipNSwag>True</SkipNSwag>
@@ -44,6 +45,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Explicit content items since default content lookup is disabled -->
+    <Content Include="abrikChat.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wwwroot\**\*" CopyToOutputDirectory="Never" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Don't publish the SPA source files, but do show them in the project files list -->
     <Content Remove="$(SpaRoot)**" />
     <None Remove="$(SpaRoot)**" />
@@ -53,18 +62,7 @@
   <ItemGroup>
     <Folder Include="wwwroot\uploads\" />
     <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
     <Folder Include="wwwroot\NewFolder\" />
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\uploads\" />
   </ItemGroup>
 
   <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">

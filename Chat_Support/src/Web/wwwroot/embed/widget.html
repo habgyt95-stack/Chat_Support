@@ -1,0 +1,232 @@
+﻿<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat Support Widget</title>
+  <style>
+    :root{ --brand:#0d6efd; }
+    *{ box-sizing: border-box; }
+    html,body{ height:100%; margin:0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, "Segoe UI Emoji"; }
+    .hidden{ display:none !important; }
+    .widget{ position: fixed; inset: 0; display:flex; flex-direction:column; }
+    .chat-window{ background:#fff; border-radius:8px; box-shadow:0 20px 25px -5px rgba(0,0,0,.1); display:flex; flex-direction:column; width:100%; height:100%; min-height:0; }
+    .chat-header{ background:var(--brand); color:#fff; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; border-radius:8px 8px 0 0; flex:0 0 auto; }
+    .chat-body{ flex:1 1 auto; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:10px; min-height:0; }
+    .chat-footer{ flex:0 0 auto; border-top:1px solid #e5e7eb; padding:8px; display:flex; align-items:center; gap:8px; }
+    .btn{ background:var(--brand); color:#fff; border:0; border-radius:6px; padding:8px 12px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+    .btn-light{ background:#f3f4f6; color:#111827; }
+    .icon-btn{ width:36px; height:32px; padding:0; }
+    .input{ width:100%; border:1px solid #e5e7eb; border-radius:6px; padding:8px 10px; min-height:36px; }
+    .msg{ max-width:70%; border-radius:10px; padding:8px 12px; }
+    .msg.own{ background:var(--brand); color:#fff; margin-left:auto; }
+    .msg.other{ background:#f3f4f6; color:#111827; margin-right:auto; }
+    .msg.sys{ width:100%; text-align:center; background:#f9fafb; color:#6b7280; }
+    .row{ display:flex; gap:8px; }
+    .header-title{ margin:0; font-size:14px; font-weight:600; }
+    .header-sub{ font-size:12px; opacity:.85; }
+    .icon{ width:20px; height:20px; display:inline-block; background:#ffffff33; border-radius:50%; margin-inline-end:8px; }
+    .badge{ background:#ef4444; color:#fff; border-radius:999px; font-size:10px; padding:2px 6px; margin-inline-start:6px; }
+  </style>
+</head>
+<body>
+  <div id="app" class="widget">
+    <div class="chat-window" id="chatWindow">
+      <div class="chat-header" id="chatHeader">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="icon"></span>
+          <div>
+            <span class="header-title">گفتگوی پشتیبانی</span>
+            <small class="header-sub" id="agentName"></small>
+          </div>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button id="closeBtn" class="btn btn-light icon-btn" title="بستن" aria-label="بستن">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="registerPane" class="chat-body">
+        <h4 style="margin:4px 0 8px">شروع گفتگو</h4>
+        <p style="margin:0 0 12px;color:#6b7280">لطفاً اطلاعات خود را وارد کنید تا گفتگوی شما با پشتیبانی آغاز شود.</p>
+        <div class="row" style="flex-direction:column">
+          <input id="nameInput" class="input" type="text" placeholder="نام شما *">
+          <input id="phoneInput" class="input" type="tel" placeholder="شماره تماس *">
+          <button id="startBtn" class="btn" aria-label="شروع">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 3l14 9-14 9V3z" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="chatPane" class="hidden" style="display:flex; flex-direction:column; height:100%; min-height:0;">
+        <div id="connBar" class="hidden" style="background:#fff7ed;color:#9a3412;padding:6px 10px">در حال اتصال...</div>
+        <div id="msgList" class="chat-body"></div>
+        <div class="chat-footer">
+          <button id="fileBtn" class="btn btn-light icon-btn" aria-label="فایل">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21.44 11.05l-8.49 8.49a5 5 0 01-7.07-7.07l8.49-8.49a3.5 3.5 0 014.95 4.95l-8.49 8.49a2 2 0 11-2.83-2.83l7.78-7.78" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <input id="fileInput" type="file" style="display:none" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar" />
+          <input id="msgInput" class="input" type="text" placeholder="پیام خود را بنویسید..." />
+          <button id="sendBtn" class="btn icon-btn" aria-label="ارسال">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 3l14 9-14 9V3z" fill="currentColor"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function(){
+      var params = new URLSearchParams(location.search);
+      var regionId = params.get('regionId');
+      var parentOrigin = params.get('origin') || document.referrer || '';
+      var brandColor = params.get('color') || '#0d6efd';
+      document.documentElement.style.setProperty('--brand', brandColor);
+
+      // Initial size
+      try{ parent.postMessage({ __chat_support_embed__: true, type:'resize', width:384, height:600 }, '*'); }catch(e){}
+
+      var closeBtn = document.getElementById('closeBtn');
+      closeBtn.addEventListener('click', function(){ try{ parent.postMessage({ __chat_support_embed__: true, type:'hide' }, '*'); }catch(e){} });
+
+      var sessionKey = 'chat_session_id';
+      var sessionId = localStorage.getItem(sessionKey);
+      if(!sessionId){ sessionId = 'guest_'+Date.now()+'_'+Math.random().toString(36).slice(2,9); localStorage.setItem(sessionKey, sessionId); }
+
+      var nameInput = document.getElementById('nameInput');
+      var phoneInput = document.getElementById('phoneInput');
+      var startBtn = document.getElementById('startBtn');
+      var registerPane = document.getElementById('registerPane');
+      var chatPane = document.getElementById('chatPane');
+      var connBar = document.getElementById('connBar');
+      var msgList = document.getElementById('msgList');
+      var msgInput = document.getElementById('msgInput');
+      var sendBtn = document.getElementById('sendBtn');
+      var fileBtn = document.getElementById('fileBtn');
+      var fileInput = document.getElementById('fileInput');
+      var agentNameEl = document.getElementById('agentName');
+
+      var state = { chatRoomId:null, lastPending:null };
+
+      var apiBase = location.origin.replace(/\/$/,'') + '/api';
+      var hubBase = location.origin.replace(/\/$/,'');
+
+      function buildMessageNode(msg){
+        var wrap=document.createElement('div');
+        var div=document.createElement('div');
+        var own = !!msg.isOwn;
+        div.className='msg '+(msg.type===5?'sys':(own?'own':'other'));
+        if(msg.type===5){ div.textContent = msg.content; }
+        else {
+          if(!own && msg.senderName){ var s=document.createElement('div'); s.style.opacity='.8'; s.style.fontSize='12px'; s.style.marginBottom='4px'; s.textContent=msg.senderName; div.appendChild(s); }
+          var body;
+          if(msg.type===0){ body=document.createElement('p'); body.style.margin='0'; body.style.fontSize='13px'; body.textContent=msg.content; }
+          else if(msg.type===1){ body=document.createElement('img'); body.src=msg.attachmentUrl; body.alt = msg.content||''; body.style.maxWidth='100%'; body.style.borderRadius='6px'; }
+          else if(msg.type===2){ body=document.createElement('a'); body.href=msg.attachmentUrl; body.target='_blank'; body.rel='noopener'; body.textContent=msg.content||'فایل'; }
+          else if(msg.type===3){ body=document.createElement('audio'); body.controls=true; var src=document.createElement('source'); src.src=msg.attachmentUrl; src.type='audio/webm'; body.appendChild(src); body.style.maxWidth='250px'; }
+          else { body=document.createElement('p'); body.textContent=msg.content||''; }
+          div.appendChild(body);
+          var meta=document.createElement('small'); meta.style.opacity='.75'; meta.style.display='block'; meta.style.marginTop='4px';
+          meta.textContent = new Date(msg.createdAt || Date.now()).toLocaleTimeString('fa-IR');
+          if(msg.status==='sending') meta.textContent += ' • در حال ارسال...';
+          if(msg.status==='failed') meta.textContent += ' • ناموفق';
+          div.appendChild(meta);
+        }
+        wrap.appendChild(div);
+        return wrap;
+      }
+
+      function addMsg(msg){ var node = buildMessageNode(msg); msgList.appendChild(node); msgList.scrollTop = msgList.scrollHeight; return node; }
+      function addSys(text){ addMsg({ type:5, content:text, createdAt:new Date().toISOString() }); }
+
+      function normalize(serverMessage){
+        var senderIdStr = serverMessage.senderId ? String(serverMessage.senderId) : '';
+        var isOwn = !senderIdStr; // for guest, empty senderId ⇒ own
+        return { id: serverMessage.id, content: serverMessage.content, senderName: serverMessage.senderFullName, isOwn: isOwn, createdAt: serverMessage.timestamp || new Date().toISOString(), type: serverMessage.type, attachmentUrl: serverMessage.attachmentUrl };
+      }
+
+      function authHeaders(){ return { 'Content-Type':'application/json', 'X-Session-Id': sessionId }; }
+
+      function startChat(){
+        var originUrl = parentOrigin || document.referrer || '';
+        var body = { guestSessionId: sessionId, guestName: nameInput.value || undefined, guestPhone: phoneInput.value || undefined, userAgent: navigator.userAgent, initialMessage: 'کاربر مهمان چتی را شروع کرد', originUrl: originUrl, forceRegionId: regionId ? parseInt(regionId,10) : undefined };
+        return fetch(apiBase + '/support/start', { method:'POST', headers: authHeaders(), body: JSON.stringify(body) })
+          .then(function(r){ if(!r.ok) throw new Error('start failed'); return r.json(); })
+          .then(function(res){ state.chatRoomId = res.chatRoomId; if(res.assignedAgentName){ agentNameEl.textContent = ' ' + res.assignedAgentName; } if(Array.isArray(res.messages)){ res.messages.forEach(function(m){ addMsg(normalize(m)); }); } return res; });
+      }
+
+      function sendText(content){
+        if(!state.chatRoomId) return;
+        var tempId = 'tmp_'+Date.now();
+        var tmp = { id:tempId, content:content, isOwn:true, createdAt:new Date().toISOString(), status:'sending', type:0 };
+        state.lastPending = { id:tempId, content:content, type:0 };
+        var node = addMsg(tmp); node.dataset.clientId = tempId;
+        fetch(apiBase + '/chat/rooms/'+state.chatRoomId+'/messages', { method:'POST', headers: authHeaders(), body: JSON.stringify({ content: content, type: 0 }) })
+          .catch(function(){ var small = node.querySelector('small'); if(small){ small.textContent += ' • ناموفق'; } });
+      }
+
+      function uploadAndSend(file){
+        if(!state.chatRoomId || !file) return;
+        var fd = new FormData(); fd.append('file', file); fd.append('chatRoomId', String(state.chatRoomId)); fd.append('type', file.type && file.type.indexOf('image/')===0 ? '1' : '2');
+        fetch(apiBase + '/chat/upload', { method:'POST', headers: { 'X-Session-Id': sessionId }, body: fd })
+          .then(function(r){ if(!r.ok) throw new Error('upload failed'); return r.json(); })
+          .then(function(resp){ return fetch(apiBase + '/chat/rooms/'+state.chatRoomId+'/messages', { method:'POST', headers: { 'Content-Type':'application/json','X-Session-Id': sessionId }, body: JSON.stringify({ content: file.name, type: file.type.indexOf('image/')===0?1:2, attachmentUrl: resp.fileUrl }) }); })
+          .catch(function(){ addSys('آپلود فایل با شکست مواجه شد. لطفاً دوباره تلاش کنید.'); });
+      }
+
+      // SignalR guest connection
+      var connection;
+      function connectHub(){
+        var s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js';
+        s.onload = function(){
+          var hubUrl = hubBase + '/guestchathub';
+          connection = new signalR.HubConnectionBuilder().withUrl(hubUrl, { accessTokenFactory: function(){ return sessionId; }, withCredentials:false }).configureLogging(signalR.LogLevel.Information).withAutomaticReconnect().build();
+
+          connection.on('ReceiveMessage', function(serverMessage){
+            var message = normalize(serverMessage);
+            if(state.lastPending && message.isOwn && state.lastPending.content===message.content && state.lastPending.type===message.type){
+              var tempId = state.lastPending.id; var children = msgList.children;
+              for(var i=children.length-1;i>=0;i--){ var el = children[i]; if(el && el.dataset && el.dataset.clientId === tempId){ var newNode = buildMessageNode(message); el.replaceWith(newNode); state.lastPending = null; msgList.scrollTop = msgList.scrollHeight; return; } }
+              state.lastPending = null;
+            }
+            addMsg(message);
+          });
+
+          connection.on('SupportChatUpdate', function(update){ if(update && update.type === 'AgentAssigned'){ if(update.agent && update.agent.name) agentNameEl.textContent = ' ' + update.agent.name; } else if(update && update.type === 'ChatTransferred'){ if(update.newAgent && update.newAgent.name) agentNameEl.textContent = ' ' + update.newAgent.name; addSys('چت شما به کارشناس دیگری منتقل شد.'); } });
+
+          connection.onreconnecting(function(){ connBar.classList.remove('hidden'); connBar.textContent='در حال اتصال مجدد...'; });
+          connection.onreconnected(function(){ connBar.classList.add('hidden'); connBar.textContent=''; });
+          connection.onclose(function(){ connBar.classList.remove('hidden'); connBar.textContent='ارتباط قطع شد'; });
+
+          connection.start().then(function(){ connection.invoke('JoinRoom', String(state.chatRoomId || '')); }).catch(function(){ connBar.classList.remove('hidden'); connBar.textContent='خطا در اتصال'; });
+        };
+        document.head.appendChild(s);
+      }
+
+      // Events
+      startBtn.addEventListener('click', function(){
+        var name = nameInput.value.trim(); var phone = phoneInput.value.trim(); if(!name || !phone){ addSys('لطفا نام و شماره تماس را وارد کنید.'); return; }
+        fetch(apiBase + '/support/guest/auth', { method:'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ name:name, phone:phone }) })
+          .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error(t||'auth failed'); }); return r.json(); })
+          .then(function(res){ sessionId = res.sessionId; localStorage.setItem(sessionKey, sessionId); try{ localStorage.setItem('chat_guest_info', JSON.stringify({ name:name, phone:phone })); }catch(e){} registerPane.classList.add('hidden'); chatPane.classList.remove('hidden'); return startChat(); })
+          .then(function(){ connectHub(); })
+          .catch(function(err){ addSys('احراز هویت مهمان با خطا مواجه شد.'); console.error(err); });
+      });
+
+      sendBtn.addEventListener('click', function(){ var v = msgInput.value.trim(); if(!v) return; msgInput.value=''; sendText(v); });
+      msgInput.addEventListener('keypress', function(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); var v=msgInput.value.trim(); if(!v) return; msgInput.value=''; sendText(v); }});
+      fileBtn.addEventListener('click', function(){ fileInput.click(); });
+      fileInput.addEventListener('change', function(e){ var f=e.target.files && e.target.files[0]; if(f) uploadAndSend(f); e.target.value=''; });
+
+      // Auto-start if saved guest exists (no need to re-enter)
+      try{ var saved = JSON.parse(localStorage.getItem('chat_guest_info')||'null'); if(saved && saved.name && saved.phone){ nameInput.value = saved.name; phoneInput.value=saved.phone; } }catch{}
+      if(nameInput.value && phoneInput.value){ fetch(apiBase + '/support/guest/auth', { method:'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ name:nameInput.value, phone:phoneInput.value }) })
+        .then(function(r){ if(!r.ok) return; return r.json(); })
+        .then(function(res){ if(!res) return; sessionId=res.sessionId; localStorage.setItem(sessionKey, sessionId); registerPane.classList.add('hidden'); chatPane.classList.remove('hidden'); return startChat(); })
+        .then(function(){ connectHub(); })
+        .catch(function(){ /* ignore */ }); }
+    })();
+  </script>
+</body>
+</html>

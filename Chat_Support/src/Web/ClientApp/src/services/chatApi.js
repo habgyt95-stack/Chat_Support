@@ -264,6 +264,20 @@ export const chatApi = {
     const response = await apiClient.post(`${SUPPORT_BASE_URL}/agent/status`, { status });
     return response.data;
   },
+
+  // Admin: tickets by agent (SupportAgent.Id)
+  getAgentTicketsByAgentId: async (agentId, status) => {
+    const response = await apiClient.get(`${SUPPORT_BASE_URL}/agents/${agentId}/tickets`, {
+      params: { status },
+    });
+    return response.data; // { Agent, Tickets }
+  },
+
+  // Admin: get ticket details
+  getTicketDetails: async (ticketId) => {
+    const response = await apiClient.get(`${SUPPORT_BASE_URL}/tickets/${ticketId}`);
+    return response.data;
+  },
 };
 
 // Helper functions for file handling

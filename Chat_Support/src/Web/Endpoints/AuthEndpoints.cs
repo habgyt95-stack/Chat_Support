@@ -206,6 +206,18 @@ public class AuthEndpoints : EndpointGroupBase
             existingDeviceRecord.IsRevoked = false;
         }
 
+        // پیوند دادن FCM token های ثبت‌شده این دستگاه به کاربر تازه لاگین شده
+        if (!string.IsNullOrWhiteSpace(providedDeviceId))
+        {
+            var fcmRows = await db.UserFcmTokenInfoMobileAbrikChats
+                .Where(x => x.DeviceId == providedDeviceId)
+                .ToListAsync();
+            foreach (var r in fcmRows)
+            {
+                r.UserId = user.Id;
+            }
+        }
+
         await db.SaveChangesAsync(CancellationToken.None);
 
         // Explicit headers for successful login response
@@ -305,6 +317,18 @@ public class AuthEndpoints : EndpointGroupBase
             existingDeviceRecord.IssuedAt = DateTime.Now;
             existingDeviceRecord.ExpiresAt = DateTime.Now.AddDays(30);
             existingDeviceRecord.IsRevoked = false;
+        }
+
+        // پیوند FCM این دستگاه به این کاربر در رفرش توکن نیز
+        if (!string.IsNullOrWhiteSpace(deviceId))
+        {
+            var fcmRows = await db.UserFcmTokenInfoMobileAbrikChats
+                .Where(x => x.DeviceId == deviceId)
+                .ToListAsync();
+            foreach (var r in fcmRows)
+            {
+                r.UserId = userId;
+            }
         }
 
         await db.SaveChangesAsync(CancellationToken.None);
