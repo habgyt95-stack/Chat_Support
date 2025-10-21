@@ -1191,7 +1191,8 @@ html { overflow-x: hidden; }
 /* Telegram-like reactions block above the menu */
 .custom-context-menu .context-reaction-wrap {
   padding: 0.5rem 0.5rem 0.35rem 0.5rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  color: var(--text-primary, #222);
 }
 
 .custom-context-menu .context-reaction-row {
@@ -1205,7 +1206,13 @@ html { overflow-x: hidden; }
   gap: 6px;
   overflow-x: auto;
   padding: 2px 2px 6px 2px;
-  max-width: calc(100% - 38px); /* space for toggle */
+  flex: 1 1 auto;
+  min-width: 0; /* allow flexbox to shrink content */
+}
+
+.custom-context-menu .reaction-more-toggle {
+  flex: 0 0 auto;
+  margin-inline-start: 6px; /* RTL-safe spacing before toggle */
 }
 
 .custom-context-menu .reaction-quick-btn,
@@ -1213,7 +1220,8 @@ html { overflow-x: hidden; }
   width: 32px;
   height: 32px;
   border: none;
-  background: transparent;
+  background: var(--app-bg, #f5f6f7);
+  color: var(--text-primary, #222);
   border-radius: 8px;
   font-size: 20px;
   display: inline-flex;
@@ -1221,11 +1229,21 @@ html { overflow-x: hidden; }
   justify-content: center;
   cursor: pointer;
   transition: background-color .15s ease, transform .1s ease;
+  border: 1px solid var(--border-color, #e5e7eb);
 }
 
 .custom-context-menu .reaction-quick-btn:hover,
 .custom-context-menu .reaction-more-toggle:hover {
-  background: var(--app-bg);
+  background: var(--header-bg, #ffffff);
+}
+
+.custom-context-menu .reaction-more-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+.custom-context-menu .reaction-more-toggle .reaction-toggle-arrow {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .custom-context-menu .reaction-quick-btn:active,

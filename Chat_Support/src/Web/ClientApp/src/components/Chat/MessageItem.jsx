@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import ReactDOM from 'react-dom';
-import {Check2, Check2All, Clock, Reply, Pencil, Forward, Trash, Download, Eye, ChevronDown, ChevronUp} from 'react-bootstrap-icons';
+import {Check2, Check2All, Clock, Reply, Pencil, Forward, Trash, Download, Eye} from 'react-bootstrap-icons';
 import {MessageDeliveryStatus} from '../../types/chat';
 import {useChat} from '../../hooks/useChat';
 import {getUserIdFromToken} from '../../Utils/jwt';
@@ -418,7 +418,9 @@ const MessageItem = ({message, isGroupChat = false}) => {
                   aria-expanded={showFullReactions}
                   aria-label={showFullReactions ? 'کمتر' : 'بیشتر'}
                 >
-                  {showFullReactions ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  <span className="reaction-toggle-arrow" aria-hidden="true">
+                    {showFullReactions ? '▴' : '▾'}
+                  </span>
                 </button>
               </div>
               {showFullReactions && (
