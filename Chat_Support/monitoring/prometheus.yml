@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'chat-support'
+    environment: 'production'
+
+scrape_configs:
+  # ASP.NET Core Metrics
+  - job_name: 'chat-support-app'
+    static_configs:
+      - targets: ['host.docker.internal:5001']
+    metrics_path: '/metrics'
+    
+  # Redis Metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+      
+  # Gotify Metrics (if available)
+  - job_name: 'gotify'
+    static_configs:
+      - targets: ['gotify:80']
+    metrics_path: '/metrics'

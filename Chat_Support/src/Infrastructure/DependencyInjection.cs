@@ -57,10 +57,9 @@ public static class DependencyInjection
         builder.Services.AddScoped<IJwtService, JwtService>();
         builder.Services.AddSingleton<IPresenceTracker, PresenceTracker>();
 
-        // Firebase HTTP v1 sender registration
-        builder.Services.AddSingleton<IFirebaseAccessTokenProvider, FirebaseAccessTokenProvider>();
-        builder.Services.AddHttpClient(nameof(FcmNotificationService));
-        builder.Services.AddScoped<IMessageNotificationService, FcmNotificationService>();
+        // Gotify self-hosted push notification
+        builder.Services.AddHttpClient(nameof(GotifyNotificationService));
+        builder.Services.AddScoped<IMessageNotificationService, GotifyNotificationService>();
         builder.Services.AddScoped<INewMessageNotifier, NewMessageNotifier>();
 
         // Background Services

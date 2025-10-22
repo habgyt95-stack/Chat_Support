@@ -1,0 +1,109 @@
+version: '3.8'
+
+# سرویس‌های self-hosted برای سیستم چت و پشتیبانی
+# استفاده: docker-compose -f docker-compose.selfhosted.yml up -d
+
+services:
+  # Gotify - سرویس Push Notification
+  gotify:
+    image: gotify/server:latest
+    container_name: chat-support-gotify
+    ports:
+      - "8080:80"
+    volumes:
+      - gotify-data:/app/data
+    environment:
+      - GOTIFY_DEFAULTUSER_NAME=admin
+      - GOTIFY_DEFAULTUSER_PASS=admin123  # تغییر دهید!
+    restart: unless-stopped
+    networks:
+      - chat-support-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis - برای SignalR Backplane و Caching
+  redis:
+    image: redis:7-alpine
+    container_name: chat-support-redis
+    command: redis-server --appendonly yes --requirepass redis123  # تغییر دهید!
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - chat-support-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus - برای Monitoring و Metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: chat-support-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+    restart: unless-stopped
+    networks:
+      - chat-support-network
+
+  # Grafana - برای Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: chat-support-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123  # تغییر دهید!
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks:
+      - chat-support-network
+    depends_on:
+      - prometheus
+
+  # Loki - برای Log Aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: chat-support-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    networks:
+      - chat-support-network
+
+volumes:
+  gotify-data:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  loki-data:
+    driver: local
+
+networks:
+  chat-support-network:
+    driver: bridge
