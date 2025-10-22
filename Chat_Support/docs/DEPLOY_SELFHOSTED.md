@@ -31,11 +31,21 @@ docker-compose -f docker-compose.selfhosted.yml up -d redis
 docker exec -it chat-support-redis redis-cli -a redis123 ping
 # باید "PONG" برگرداند
 
-# اضافه کردن به appsettings.json:
+# فعال‌سازی در appsettings.json:
+# خط زیر را uncomment کنید:
 "ConnectionStrings": {
   "Redis": "localhost:6379,password=redis123,ssl=false,abortConnect=false"
 }
+
+# Restart application
+# اکنون SignalR از Redis backplane استفاده می‌کند
+# می‌توانید چند instance از app را اجرا کنید
 ```
+
+**ویژگی‌های فعال شده:**
+- ✅ SignalR Backplane: پشتیبانی چند instance
+- ✅ Redis Presence Tracker: tracking آنلاین کاربران در scale-out
+- ✅ Auto-fallback: در صورت نبود Redis، in-memory استفاده می‌شود
 
 ## گام 3: راه‌اندازی Monitoring (اختیاری)
 

@@ -17,6 +17,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using StackExchange.Redis;
 
 namespace Chat_Support.Infrastructure;
 public static class DependencyInjection
@@ -55,7 +56,42 @@ public static class DependencyInjection
         builder.Services.AddScoped<IIdentityService, IdentityService>();
         builder.Services.AddScoped<ISmsService, KavenegarSmsService>();
         builder.Services.AddScoped<IJwtService, JwtService>();
-        builder.Services.AddSingleton<IPresenceTracker, PresenceTracker>();
+
+        // Redis برای SignalR Backplane و Presence Tracking
+        var redisConnection = builder.Configuration.GetConnectionString("Redis");
+        if (!string.IsNullOrEmpty(redisConnection))
+        {
+            // اتصال Redis
+            builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+            {
+                var configuration = ConfigurationOptions.Parse(redisConnection);
+                configuration.AbortOnConnectFail = false;  // در صورت خطا، app crash نکند
+                configuration.ConnectRetry = 3;
+                configuration.ConnectTimeout = 5000;
+                return ConnectionMultiplexer.Connect(configuration);
+            });
+
+            // SignalR Backplane با Redis
+            builder.Services.AddSignalR()
+                .AddStackExchangeRedis(redisConnection, options =>
+                {
+                    options.Configuration.ChannelPrefix = RedisChannel.Literal("ChatSupport");
+                });
+
+            // استفاده از Redis-based PresenceTracker
+            builder.Services.AddSingleton<IPresenceTracker, RedisPresenceTracker>();
+            
+            var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<IConnectionMultiplexer>>();
+            logger.LogInformation("Redis configured for SignalR backplane at {RedisConnection}", redisConnection);
+        }
+        else
+        {
+            // در صورت نبود Redis، از in-memory استفاده شود
+            builder.Services.AddSingleton<IPresenceTracker, PresenceTracker>();
+            
+            var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<IConnectionMultiplexer>>();
+            logger.LogWarning("Redis not configured. Using in-memory PresenceTracker (not suitable for scale-out)");
+        }
 
         // Gotify self-hosted push notification
         builder.Services.AddHttpClient(nameof(GotifyNotificationService));
