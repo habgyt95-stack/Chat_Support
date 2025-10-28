@@ -32,9 +32,9 @@ if (!app.Environment.IsDevelopment())
 {
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
+    // Enforce HTTPS only in non-development environments to avoid TLS warnings on LAN IP during local dev
+    app.UseHttpsRedirection();
 }
-
-app.UseHttpsRedirection();
 
 app.UseStaticFiles(new StaticFileOptions
 {

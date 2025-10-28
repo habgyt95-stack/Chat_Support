@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatFlow Dashboard - مدیریت گفتگوها</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#8B5CF6',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444'
+                    },
+                    fontFamily: {
+                        'vazir': ['Vazir', 'Tahoma', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="font-vazir bg-gray-50 min-h-screen">
+    <custom-navbar></custom-navbar>
+    
+    <div class="flex h-[calc(100vh-80px)]">
+        <!-- Sidebar -->
+        <custom-sidebar></custom-sidebar>
+        
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            <div class="bg-white border-b border-gray-200 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <h1 class="text-2xl font-bold text-gray-800">داشبورد مدیریت گفتگوها</h1>
+                    <div class="flex items-center gap-4">
+                        <div class="relative">
+                            <i data-feather="search" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" placeholder="جستجو کاربر..." class="pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold">
+                            </div>
+                            <span class="text-gray-700">مدیر سیستم</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+                <!-- Users List -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                    <div class="bg-primary text-white px-4 py-3">
+                        <h2 class="text-lg font-semibold flex items-center gap-2">
+                            <i data-feather="users"></i>
+                            لیست کاربران
+                        </h2>
+                    </div>
+                    <div class="divide-y divide-gray-200 max-h-[600px] overflow-y-auto" id="usersList">
+                        <!-- Users will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- User Chats -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                    <div class="bg-secondary text-white px-4 py-3">
+                        <h2 class="text-lg font-semibold flex items-center gap-2">
+                            <i data-feather="message-square"></i>
+                            گفتگوهای کاربر
+                        </h2>
+                    </div>
+                    <div class="divide-y divide-gray-200 max-h-[600px] overflow-y-auto" id="userChats">
+                        <!-- Chats will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Chat Messages -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                    <div class="bg-success text-white px-4 py-3">
+                        <h2 class="text-lg font-semibold flex items-center gap-2">
+                            <i data-feather="message-circle"></i>
+                            پیام‌های گفتگو
+                        </h2>
+                    </div>
+                    <div class="p-4 max-h-[600px] overflow-y-auto" id="chatMessages">
+                        <!-- Messages will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <custom-footer></custom-footer>
+
+    <!-- Component Scripts -->
+    <script src="components/navbar.js"></script>
+    <script src="components/sidebar.js"></script>
+    <script src="components/footer.js"></script>
+    
+    <!-- Main Script -->
+    <script src="script.js"></script>
+    
+    <!-- Feather Icons -->
+    <script>
+        feather.replace();
+    </script>
+<script src="https://huggingface.co/deepsite/deepsite-badge.js"></script>
+</body>
+</html>

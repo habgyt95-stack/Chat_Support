@@ -66,7 +66,7 @@ const AgentManagement = () => {
         const list = await chatApi.getAvailableAgents(selectedTicket.regionId);
         setAvailableAgents(list);
         setTransferAgentId(list[0]?.userId?.toString() || '');
-      } catch (e) {
+      } catch {
         // ignore
       } finally {
         setLoadingAvailableAgents(false);
@@ -206,6 +206,21 @@ const AgentManagement = () => {
     return statusMap[status] || status || 'نامشخص';
   };
 
+  // Ticket status helpers (for inspector list and header)
+  const getTicketStatusVariant = (status) => ({
+    0: 'primary',      // باز
+    1: 'warning',      // در حال بررسی
+    2: 'success',      // حل شده
+    3: 'secondary',    // بسته شده
+  }[status] || 'secondary');
+
+  const getTicketStatusText = (status) => ({
+    0: 'باز',
+    1: 'در حال بررسی',
+    2: 'حل شده',
+    3: 'بسته شده',
+  }[status] || 'نامشخص');
+
   // Admin panel helpers
   const viewAgentTickets = async (agent) => {
     try {
@@ -216,7 +231,7 @@ const AgentManagement = () => {
       setSelectedAgentForView({ agent: data.agent, tickets: data.tickets });
       setSelectedTicket(null);
       setTicketMessages([]);
-    } catch (err) {
+    } catch {
       setError('خطا در بارگذاری تیکت‌های پشتیبان');
     } finally {
       setAgentTicketsLoading(false);
@@ -230,7 +245,7 @@ const AgentManagement = () => {
       // Load messages for ticket's chatroom
       const messages = await chatApi.getChatMessages(ticket.chatRoomId, 1, 100);
       setTicketMessages(messages);
-    } catch (err) {
+    } catch {
       setError('خطا در بارگذاری پیام‌های تیکت');
     } finally {
       setTicketMessagesLoading(false);
@@ -246,7 +261,7 @@ const AgentManagement = () => {
       });
       setTicketMessages((prev) => [...prev, msg]);
       setNewMessage('');
-    } catch (err) {
+    } catch {
       setError('ارسال پیام ناموفق بود');
     }
   };
@@ -259,7 +274,7 @@ const AgentManagement = () => {
       // refresh list
       if (selectedAgentForView?.agent?.id) await viewAgentTickets(selectedAgentForView.agent);
       setSelectedTicket({ ...ticket, status: 2 });
-    } catch (err) {
+    } catch {
       setError('بستن تیکت ناموفق بود');
     }
   };
@@ -274,7 +289,7 @@ const AgentManagement = () => {
       const messages = await chatApi.getChatMessages(selectedTicket.chatRoomId, 1, 100);
       setTicketMessages(messages);
       setTransferReason('');
-    } catch (err) {
+    } catch {
       setError('انتقال تیکت ناموفق بود');
     }
   };
@@ -454,7 +469,7 @@ const AgentManagement = () => {
                     <div className="p-3 text-muted">پشتیبانی انتخاب نشده است.</div>
                   ) : selectedAgentForView.tickets?.length ? (
                     <ListGroup variant="flush">
-                      {selectedAgentForView.tickets.map((t) => (
+                        {selectedAgentForView.tickets.map((t) => (
                         <ListGroup.Item
                           key={t.id}
                           action
@@ -463,12 +478,15 @@ const AgentManagement = () => {
                         >
                           <div className="d-flex justify-content-between">
                             <div>
-                              <div className="fw-bold">تیکت #{t.id}</div>
-                              <div className="small text-muted">{t.requesterName}</div>
+                              <div className="fw-bold">{t.requesterName || 'بدون نام'}</div>
+                              <div className="small text-muted">#{t.id}</div>
                             </div>
                             <div className="text-end">
-                              <Badge bg="light" text="dark">{t.regionTitle || 'بدون ناحیه'}</Badge>
-                              <div className="small">Unread: {t.unreadCount}</div>
+                              <div className="d-flex align-items-center justify-content-end gap-2 mb-1">
+                                <Badge bg={getTicketStatusVariant(t.status)}>{getTicketStatusText(t.status)}</Badge>
+                                <Badge bg="light" text="dark">{t.regionTitle || 'بدون ناحیه'}</Badge>
+                              </div>
+                              <div className="small text-muted">خوانده‌نشده: {typeof t.unreadCount === 'number' ? t.unreadCount : 0}</div>
                             </div>
                           </div>
                         </ListGroup.Item>
@@ -487,6 +505,11 @@ const AgentManagement = () => {
                   <div className="d-flex align-items-center gap-2">
                     <MessageSquare size={18} />
                     <span>گفتگو</span>
+                    {selectedTicket && (
+                      <Badge bg={getTicketStatusVariant(selectedTicket.status)} className="ms-1">
+                        {getTicketStatusText(selectedTicket.status)}
+                      </Badge>
+                    )}
                   </div>
                   <div className="d-flex gap-2">
                     {selectedTicket && (

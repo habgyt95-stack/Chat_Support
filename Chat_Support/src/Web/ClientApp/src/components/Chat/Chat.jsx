@@ -29,6 +29,7 @@ import NewRoomModal from "./NewRoomModal";
 import GroupManagementModal from "./GroupManagementModal";
 
 import "./Chat.css";
+import PWAInstallPrompt from "../PWAInstallPrompt.jsx";
 
 const Chat = () => {
   const { roomId } = useParams();
@@ -77,6 +78,7 @@ const Chat = () => {
     clearForwardingMessage,
 
     forwardMessage,
+    setMessagesForRoom,
   } = useChat();
 
   const [showNewRoomModal, setShowNewRoomModal] = useState(false);
@@ -85,6 +87,7 @@ const Chat = () => {
   const [groupManagementTab, setGroupManagementTab] = useState("members"); // default tab
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [jumpToMessageId, setJumpToMessageId] = useState(null);
 
   const [hasTriedLoadingRooms, setHasTriedLoadingRooms] = useState(false);
 
@@ -95,6 +98,7 @@ const Chat = () => {
 
   const _isFromSupport = urlParams.get("support") === "true";
   const _ticketId = urlParams.get("ticketId");
+  const _jumpToMessageId = urlParams.get("jumpToMessageId");
 
   const selectedRoom = currentRoom;
 
@@ -129,6 +133,30 @@ const Chat = () => {
         await joinRoom(room.id);
         await loadMessages(room.id, 1, 20, false);
         markAllMessagesAsReadInRoom(room.id);
+
+        // If URL has a jump target, load a centered context and then trigger scroll
+        if (_jumpToMessageId) {
+          try {
+            const targetId = parseInt(_jumpToMessageId, 10);
+            if (!isNaN(targetId)) {
+              const ctx = await chatApi.getMessageContext(targetId, 20, 20);
+              if (ctx?.chatRoomId && ctx.chatRoomId !== room.id) {
+                // If target belongs to another room, navigate there
+                navigate(`/chat/${ctx.chatRoomId}?jumpToMessageId=${targetId}`, { replace: true });
+              }
+              if (ctx?.messages?.length) {
+                setMessagesForRoom(room.id, ctx.messages);
+                setJumpToMessageId(targetId);
+                // Clean URL to avoid re-trigger
+                const clean = new URL(window.location.href);
+                clean.searchParams.delete('jumpToMessageId');
+                window.history.replaceState({}, '', clean);
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to load message context', e);
+          }
+        }
       } catch (err) {
         console.error("Error selecting room:", err);
         // If there's an error, make sure we're in a consistent state
@@ -148,6 +176,8 @@ const Chat = () => {
       loadMessages,
       markAllMessagesAsReadInRoom,
       isLoading,
+      _jumpToMessageId,
+      setMessagesForRoom,
     ]
   );
 
@@ -188,12 +218,16 @@ const Chat = () => {
   }, []);
 
   const handleMobileBack = useCallback(() => {
+    if (currentRoom?.id) {
+      leaveRoom(currentRoom.id);
+    }
+    
     setCurrentRoom(null);
 
     loadRooms(); // لیست چت‌ها را دوباره بارگذاری کن
 
-    navigate("/Chat", { replace: true });
-  }, [navigate, setCurrentRoom, loadRooms]);
+    navigate("/chat", { replace: true });
+  }, [currentRoom, navigate, setCurrentRoom, loadRooms, leaveRoom]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -202,6 +236,34 @@ const Chat = () => {
 
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Handle mobile back button (physical back button on phone)
+  useEffect(() => {
+    const handlePopState = (event) => {
+      // اگر در موبایل هستیم و یک چت باز است
+      if (isMobile && currentRoom) {
+        // جلوگیری از رفتار پیش‌فرض (بستن PWA)
+        event.preventDefault();
+        
+        // برگشت به لیست چت‌ها
+        handleMobileBack();
+        
+        // اضافه کردن یک history entry جدید تا PWA بسته نشود
+        window.history.pushState(null, '', '/chat');
+      }
+    };
+
+    // اضافه کردن یک history entry اولیه
+    if (isMobile && currentRoom) {
+      window.history.pushState(null, '', window.location.href);
+    }
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isMobile, currentRoom, handleMobileBack]);
 
   // Mobile keyboard/viewport fixes: keep header/footer visible and input above keyboard
   useEffect(() => {
@@ -507,6 +569,7 @@ const Chat = () => {
         }}
         isGroupChat={currentRoom?.isGroup}
         roomId={currentRoom?.id}
+        jumpToMessageId={jumpToMessageId}
       />
 
       <MessageInput roomId={currentRoom.id} />
@@ -515,6 +578,7 @@ const Chat = () => {
 
   return (
     <div className="chat-app-container">
+      <PWAInstallPrompt />
       {forwardingMessage && (
         <div className="forwarding-banner">
           <p>

@@ -319,11 +319,12 @@ public class Support : EndpointGroupBase
                                 : "Guest"
                         })
                         .FirstOrDefault(),
-                    UnreadCount = t.ChatRoom.Messages
-                        .Count(m => m.SenderId != agentId && m.Created > t.ChatRoom.Members
-                            .Where(mem => mem.UserId == agentId)
-                            .Select(mem => mem.LastSeenAt)
-                            .FirstOrDefault())
+                    UnreadCount = dbContext.ChatMessages
+                        .Where(m => m.ChatRoomId == t.ChatRoomId && !m.IsDeleted && m.SenderId != agentId)
+                        .Count(m => m.Id > (dbContext.ChatRoomMembers
+                            .Where(mem => mem.ChatRoomId == t.ChatRoomId && mem.UserId == agentId)
+                            .Select(mem => mem.LastReadMessageId)
+                            .FirstOrDefault() ?? 0))
                 })
                 .ToListAsync();
 
@@ -685,7 +686,7 @@ public class Support : EndpointGroupBase
                 ChatRoomId = t.ChatRoomId,
                 RequesterName = t.RequesterUser != null
                     ? ($"{t.RequesterUser.FirstName} {t.RequesterUser.LastName}")
-                    : (t.RequesterGuest != null ? t.RequesterGuest.Name : null),
+                    : (t.RequesterGuest != null ? (t.RequesterGuest.Name ?? "Guest") : "Guest"),
                 RequesterEmail = t.RequesterUser != null
                     ? t.RequesterUser.Email
                     : (t.RequesterGuest != null ? t.RequesterGuest.Email : null),

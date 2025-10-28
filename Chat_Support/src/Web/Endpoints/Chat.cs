@@ -41,6 +41,8 @@ public class Chat : EndpointGroupBase
         // User endpoints
         chatApi.MapGet("/users/online", GetOnlineUsers).RequireAuthorization();
         chatApi.MapGet("/users/search", SearchUsers).RequireAuthorization();
+    // Global search (users + messages)
+    chatApi.MapGet("/search", SearchEverything).RequireAuthorization();
 
         // File upload endpoint
         chatApi.MapPost("/upload", UploadFile)
@@ -58,6 +60,10 @@ public class Chat : EndpointGroupBase
         chatApi.MapGet("/file-meta", GetFileMeta)
             .AllowAnonymous()
             .RequireCors("ChatSupportApp");
+
+        // Message context for jumping to a specific message
+        chatApi.MapGet("/messages/{messageId:int}/context", GetMessageContext)
+            .RequireAuthorization();
 
         // Group management endpoints
         chatApi.MapPut("/rooms/{roomId:int}", UpdateChatRoom).RequireAuthorization();
@@ -326,6 +332,140 @@ public class Chat : EndpointGroupBase
     .ToListAsync();
 
         return Results.Ok(users);
+    }
+
+    private static async Task<IResult> SearchEverything(
+        string query,
+        IApplicationDbContext context,
+        IUser currentUser)
+    {
+        var userId = currentUser.Id;
+        var regionId = currentUser.RegionId;
+
+        // Users (reuse logic but with small cap)
+        var users = await context.KciUsers
+            .Where(u => u.Id != userId)
+            .Where(u => u.RegionId == regionId && u.Enable == true)
+            .Where(u => u.UserName!.Contains(query) ||
+                        u.Email!.Contains(query) ||
+                        u.Mobile!.Contains(query) ||
+                        (u.FirstName + " " + u.LastName).Contains(query))
+            .Select(u => new
+            {
+                u.Id,
+                UserName = u.Mobile,
+                FullName = u.FirstName + " " + u.LastName,
+                u.Email,
+                u.ImageName
+            })
+            .Take(20)
+            .ToListAsync();
+
+        // Messages: only within rooms the current user is a member of
+        var myRoomIds = await context.ChatRoomMembers
+            .Where(m => m.UserId == userId)
+            .Select(m => m.ChatRoomId)
+            .ToListAsync();
+
+        // Simple text search on message content; include basic metadata
+        var messages = await context.ChatMessages
+            .Where(m => myRoomIds.Contains(m.ChatRoomId) && !m.IsDeleted)
+            .Where(m => m.Content.Contains(query))
+            .Include(m => m.ChatRoom)
+            .Include(m => m.Sender)
+            .OrderByDescending(m => m.Created)
+            .Take(50)
+            .Select(m => new
+            {
+                MessageId = m.Id,
+                ChatRoomId = m.ChatRoomId,
+                ChatRoomName = m.ChatRoom.IsGroup || m.ChatRoom.ChatRoomType != Domain.Enums.ChatRoomType.UserToUser
+                    ? m.ChatRoom.Name
+                    : (m.ChatRoom.Members
+                        .Where(mm => mm.UserId != userId)
+                        .Select(mm => mm.User.FirstName + " " + mm.User.LastName)
+                        .FirstOrDefault() ?? m.ChatRoom.Name),
+                SenderFullName = m.Sender != null ? (m.Sender.FirstName + " " + m.Sender.LastName) : "مهمان",
+                Content = m.Content,
+                Type = m.Type,
+                Timestamp = m.Created.UtcDateTime
+            })
+            .ToListAsync();
+
+        return Results.Ok(new { users, messages });
+    }
+
+    private static async Task<IResult> GetMessageContext(
+        int messageId,
+        IApplicationDbContext context,
+        IUser currentUser,
+        IMapper mapper,
+        [FromQuery] int before = 15,
+        [FromQuery] int after = 15)
+    {
+        var userId = currentUser.Id;
+        var target = await context.ChatMessages
+            .Include(m => m.ChatRoom)
+            .FirstOrDefaultAsync(m => m.Id == messageId);
+        if (target == null)
+            return Results.NotFound();
+
+        // Authorization: ensure user is a member of the room
+        var isMember = await context.ChatRoomMembers.AnyAsync(m => m.ChatRoomId == target.ChatRoomId && m.UserId == userId);
+        if (!isMember)
+            return Results.Forbid();
+
+        // Build before/after windows by Created time
+        var beforeList = await context.ChatMessages
+            .Where(m => m.ChatRoomId == target.ChatRoomId && !m.IsDeleted && m.Created <= target.Created)
+            .Include(m => m.Sender)
+            .Include(m => m.ReplyToMessage)!.ThenInclude(r => r!.Sender)
+            .Include(m => m.Reactions).ThenInclude(r => r.User)
+            .OrderByDescending(m => m.Created)
+            .Take(Math.Max(before, 1))
+            .ToListAsync();
+        beforeList.Reverse(); // chronological
+
+        var afterList = await context.ChatMessages
+            .Where(m => m.ChatRoomId == target.ChatRoomId && !m.IsDeleted && m.Created > target.Created)
+            .Include(m => m.Sender)
+            .Include(m => m.ReplyToMessage)!.ThenInclude(r => r!.Sender)
+            .Include(m => m.Reactions).ThenInclude(r => r.User)
+            .OrderBy(m => m.Created)
+            .Take(Math.Max(after, 1))
+            .ToListAsync();
+
+        var combined = beforeList.Concat(afterList).ToList();
+
+        // Map to DTOs and compute DeliveryStatus like GetChatMessages
+        var dtos = combined.Select(m => mapper.Map<Chat_Support.Application.Chats.DTOs.ChatMessageDto>(m, opt => opt.Items["currentUserId"] = userId)).ToList();
+
+        // Compute delivery status
+        var withStatus = await context.ChatMessages
+            .Where(m => combined.Select(x => x.Id).Contains(m.Id))
+            .Select(m => new { m.Id, m.SenderId, Statuses = m.Statuses })
+            .ToListAsync();
+
+        var statusMap = withStatus.ToDictionary(
+            x => x.Id,
+            x => (x.SenderId == userId
+                ? (x.Statuses.Any(s => s.UserId != userId && s.Status == Domain.Enums.ReadStatus.Read)
+                    ? Domain.Enums.ReadStatus.Read
+                    : (x.Statuses.Any(s => s.UserId != userId && s.Status >= Domain.Enums.ReadStatus.Delivered)
+                        ? Domain.Enums.ReadStatus.Delivered
+                        : Domain.Enums.ReadStatus.Sent))
+                : Domain.Enums.ReadStatus.Sent)
+        );
+
+        dtos.ForEach(d =>
+        {
+            if (statusMap.TryGetValue(d.Id, out var st))
+            {
+                d.DeliveryStatus = st;
+            }
+        });
+
+        return Results.Ok(new { chatRoomId = target.ChatRoomId, messages = dtos, targetMessageId = messageId });
     }
 
     private static async Task<IResult> GetChatRoomMembers(

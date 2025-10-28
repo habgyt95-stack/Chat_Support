@@ -4,6 +4,7 @@ using Chat_Support.Application.TodoLists.Commands.UpdateTodoList;
 using Chat_Support.Domain.Entities;
 
 using static Chat_Support.Application.FunctionalTests.Testing;
+using NotFoundException = Chat_Support.Application.Common.Exceptions.NotFoundException;
 
 namespace Chat_Support.Application.FunctionalTests.TodoLists.Commands;
 public class UpdateTodoListTests : BaseTestFixture

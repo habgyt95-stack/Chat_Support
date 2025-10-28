@@ -26,6 +26,8 @@ import { useChat } from "../../hooks/useChat";
 import { chatApi } from "../../services/chatApi";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../hooks/useAuth";
+import { parseJwt } from "../../Utils/jwt";
+import { useNavigate } from "react-router-dom";
 
 const ChatRoomList = ({
   rooms = [],
@@ -35,11 +37,12 @@ const ChatRoomList = ({
   isLoading,
   isAgent = false,
 }) => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
 
   const { createChatRoom, currentLoggedInUserId } = useChat();
-  const { accounts = [], activeAccountId, switchAccount, logout } = useAuth();
+  const { accounts = [], activeAccountId, switchAccount, logout, user } = useAuth();
 
   const activeAccount = useMemo(
     () =>
@@ -56,8 +59,40 @@ const ChatRoomList = ({
   const searchInputRef = useRef(null);
   const [activeTab, setActiveTab] = useState("all"); // all | support
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchMode, setSearchMode] = useState('compose'); // 'compose' | 'global'
+  const [globalResults, setGlobalResults] = useState({ users: [], messages: [] });
+  const [globalLoading, setGlobalLoading] = useState(false);
   const [showSettingsDrawer, setShowSettingsDrawer] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(true);
+
+  // Try to resolve region from user profile, JWT claims, then env/global fallbacks
+  const token = (typeof window !== "undefined" && localStorage.getItem("token")) || "";
+  const claims = token ? parseJwt(token) : null;
+  const regionFromToken =
+    claims?.regionTitle ||
+    claims?.RegionTitle ||
+    claims?.regionName ||
+    claims?.RegionName ||
+    claims?.region_title ||
+    claims?.region_name ||
+    claims?.region ||
+    claims?.Region ||
+    claims?.regionFa ||
+    claims?.RegionFa ||
+    claims?.region?.title ||
+    claims?.region?.name ||
+    null;
+
+  // Region label for the banner (prefer user profile -> jwt -> env -> global)
+  const regionName =
+    user?.regionTitle ||
+    user?.regionName ||
+    user?.region?.title ||
+    user?.region?.name ||
+    regionFromToken ||
+    (typeof import.meta !== "undefined" && import.meta.env?.VITE_REGION_NAME) ||
+    (typeof window !== "undefined" && window.__APP_REGION__) ||
+    "";
 
   const filterUsersWithoutChat = (users, activeRooms) => {
     const usersWithChat = new Set();
@@ -100,11 +135,29 @@ const ChatRoomList = ({
     }, 200);
   };
 
-  const handleSearchChange = async (e) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    if (showUserSearchResults) {
-      await updateUsersList(value);
+  const highlightSnippet = (content = "", term = "") => {
+    if (!content || !term) return content || "";
+    try {
+      const idx = content.toLowerCase().indexOf(term.toLowerCase());
+      if (idx === -1) return content;
+      const start = Math.max(0, idx - 20);
+      const end = Math.min(content.length, idx + term.length + 20);
+      const prefix = start > 0 ? "…" : "";
+      const suffix = end < content.length ? "…" : "";
+      const before = content.substring(start, idx);
+      const match = content.substring(idx, idx + term.length);
+      const after = content.substring(idx + term.length, end);
+      return (
+        <>
+          {prefix}
+          {before}
+          <span className="search-highlight">{match}</span>
+          {after}
+          {suffix}
+        </>
+      );
+    } catch {
+      return content;
     }
   };
 
@@ -164,17 +217,19 @@ const ChatRoomList = ({
     room.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const activateSearch = () => {
+  const activateSearch = (mode = 'compose') => {
     setIsSearchActive(true);
+    setSearchMode(mode);
     setTimeout(() => {
       searchInputRef.current?.focus();
     }, 0);
-    if (!(isAgent && activeTab === "support")) handleSearchFocus();
+    if (mode === 'compose' && !(isAgent && activeTab === "support")) handleSearchFocus();
   };
   const deactivateSearch = () => {
     setIsSearchActive(false);
     setShowUserSearchResults(false);
     setSearchTerm("");
+    setGlobalResults({ users: [], messages: [] });
   };
 
   const renderSearchInline = () => (
@@ -193,16 +248,35 @@ const ChatRoomList = ({
         <Form.Control
           type="text"
           placeholder={
-            isAgent && activeTab === "support"
-              ? "جستجو در چت‌های پشتیبانی..."
-              : "جستجو..."
+            searchMode === 'global'
+              ? 'جستجو در همه چت‌ها و کاربران...'
+              : (isAgent && activeTab === "support" ? "جستجو در چت‌های پشتیبانی..." : "جستجو...")
           }
           value={searchTerm}
           ref={searchInputRef}
-          onBlur={
-            isAgent && activeTab === "support" ? undefined : handleSearchBlur
-          }
-          onChange={handleSearchChange}
+          onBlur={searchMode === 'compose' && !(isAgent && activeTab === 'support') ? handleSearchBlur : undefined}
+          onChange={async (e) => {
+            const value = e.target.value;
+            setSearchTerm(value);
+            if (searchMode === 'compose') {
+              if (showUserSearchResults) await updateUsersList(value);
+            } else {
+              // global search
+              if (value && value.trim().length > 0) {
+                setGlobalLoading(true);
+                try {
+                  const res = await chatApi.searchAll(value.trim());
+                  setGlobalResults({ users: res.users || [], messages: res.messages || [] });
+                } catch {
+                  setGlobalResults({ users: [], messages: [] });
+                } finally {
+                  setGlobalLoading(false);
+                }
+              } else {
+                setGlobalResults({ users: [], messages: [] });
+              }
+            }
+          }}
           className="search-input telegram"
           autoComplete="off"
         />
@@ -480,7 +554,7 @@ const ChatRoomList = ({
                   variant="light"
                   className="icon-btn p-1"
                   title="جستجو"
-                  onClick={activateSearch}
+                  onClick={() => activateSearch('global')}
                 >
                   <Search size={20} />
                 </Button>
@@ -509,6 +583,11 @@ const ChatRoomList = ({
           )}
           {isSearchActive && renderSearchInline()}
         </div>
+        {/* Organization banner (neutral style) */}
+        <div className="w-100 text-secondary text-center py-0 small px-2 text-truncate org-region-banner">
+          {`شبکه اجتماعی سازمانی${regionName ? ` ${regionName}` : ""}`}
+        </div>
+        <div className="w-100 border-bottom" />
         {isAgent && (
           <div className="chat-telegram-tabs">
             <Tabs
@@ -539,17 +618,82 @@ const ChatRoomList = ({
         )}
       </div>
 
-      <ListGroup variant="flush" className="chatroom-list hide-scrollbar">
-        {renderRoomList()}
-      </ListGroup>
+      {/* Content area: either global search results, compose search, or rooms */}
+      {isSearchActive && searchMode === 'global' ? (
+        <div className="chat-global-search-results hide-scrollbar">
+          {globalLoading && (
+            <div className="d-flex justify-content-center p-3">
+              <Spinner size="sm" />
+            </div>
+          )}
+          {!globalLoading && (!searchTerm || (!globalResults.users.length && !globalResults.messages.length)) && (
+            <div className="text-center text-muted p-4">برای جستجو تایپ کنید</div>
+          )}
+
+          {!globalLoading && globalResults.users.length > 0 && (
+            <>
+              <div className="search-section-label">افراد</div>
+              <ListGroup variant="flush">
+                {globalResults.users.map((u) => (
+                  <ListGroup.Item
+                    key={`u-${u.id}`}
+                    action
+                    className="search-result-item"
+                    onMouseDown={() => handleUserSelectForChat({ id: u.id, fullName: u.fullName, userName: u.userName })}
+                  >
+                    <span className="user-search-avatar bg-secondary text-light me-2">
+                      {u.fullName?.charAt(0) || 'U'}
+                    </span>
+                    <div className="d-flex flex-column">
+                      <span className="fw-semibold">{u.fullName}</span>
+                      <small className="text-muted">{u.userName}</small>
+                    </div>
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+            </>
+          )}
+
+          {!globalLoading && globalResults.messages.length > 0 && (
+            <>
+              <div className="search-section-label">پیام‌ها</div>
+              <ListGroup variant="flush">
+                {globalResults.messages.map((m) => (
+                  <ListGroup.Item
+                    key={`m-${m.messageId}`}
+                    action
+                    className="search-result-item"
+                    onMouseDown={() => {
+                      // Navigate with jump parameter; Chat.jsx will load centered context and scroll
+                      navigate(`/chat/${m.chatRoomId}?jumpToMessageId=${m.messageId}`);
+                    }}
+                  >
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div className="text-truncate fw-semibold">{m.chatRoomName}</div>
+                      <small className="text-muted flex-shrink-0">{new Date(m.timestamp).toLocaleDateString('fa-IR')}</small>
+                    </div>
+                    <div className="text-muted small text-truncate">
+                      {highlightSnippet(m.content, searchTerm)}
+                    </div>
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
+            </>
+          )}
+        </div>
+      ) : (
+        <ListGroup variant="flush" className="chatroom-list hide-scrollbar">
+          {renderRoomList()}
+        </ListGroup>
+      )}
 
       {/* {renderBottomToggle()} */}
 
-      {/* Floating compose button (Telegram-like) */}
-      {!(isAgent && activeTab === "support") && (
+      {/* Floating compose button (Telegram-like) - hide when search is active or in support tab */}
+      {!isSearchActive && !(isAgent && activeTab === "support") && (
         <Button
           variant="primary"
-          onClick={activateSearch}
+          onClick={() => activateSearch('compose')}
           className="floating-compose-btn shadow"
           aria-label="جستجو"
           title="جستجو"

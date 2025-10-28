@@ -5,6 +5,7 @@ import LiveChatWidget from "./components/Chat/LiveChatWidget.jsx";
 import Chat from "./components/Chat/Chat.jsx";
 import AgentDashboard from "./components/Chat/AgentDashboard.jsx";
 import AgentManagement from "./components/Chat/AgentManagement.jsx";
+import AdminChatDashboard from "./components/Admin/AdminChatDashboard.jsx";
 import { ChatProvider } from "./contexts/ChatContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { useAuth } from "./hooks/useAuth";
@@ -67,6 +68,14 @@ const AppRouter = () => {
           element={
             <ProtectedRoute>
               <AgentManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/chats"
+          element={
+            <ProtectedRoute>
+              <AdminChatDashboard />
             </ProtectedRoute>
           }
         />

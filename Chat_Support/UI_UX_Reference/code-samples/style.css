@@ -1,0 +1,134 @@
+/* Persian Font Import */
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css');
+
+/* Shared styles across all pages */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Vazir', 'Tahoma', 'sans-serif';
+    line-height: 1.6;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Animation Classes */
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* User Card Hover Effect */
+.user-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.user-card:hover {
+    background-color: #f8fafc;
+    transform: translateX(-4px);
+}
+
+.user-card.active {
+    background-color: #eff6ff;
+    border-right: 4px solid #3B82F6;
+}
+
+/* Chat Card Hover Effect */
+.chat-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.chat-card:hover {
+    background-color: #f8fafc;
+    transform: translateX(-4px);
+}
+
+.chat-card.active {
+    background-color: #f0f9ff;
+    border-right: 4px solid #8B5CF6;
+}
+
+/* Message Bubbles */
+.message-bubble {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 18px;
+    margin-bottom: 8px;
+    word-wrap: break-word;
+}
+
+.message-sent {
+    background-color: #3B82F6;
+    color: white;
+    margin-left: auto;
+    margin-right: 0;
+}
+
+.message-received {
+    background-color: #f1f5f9;
+    color: #334155;
+    margin-right: auto;
+    margin-left: 0;
+}
+
+/* Loading Animation */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3B82F6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .grid-cols-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+    .dark\:bg-gray-900 {
+        background-color: #111827;
+    }
+    
+    .dark\:text-white {
+        color: white;
+    }
+    
+    .dark\:bg-gray-800 {
+        background-color: #1f2937;
+    }
+}

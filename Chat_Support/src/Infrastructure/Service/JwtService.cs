@@ -7,6 +7,7 @@ using Chat_Support.Application.Common.Interfaces;
 using Chat_Support.Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.EntityFrameworkCore;
 
 namespace Chat_Support.Infrastructure.Service;
 
@@ -23,7 +24,14 @@ public class JwtService : IJwtService
 
     public async Task<AuthTokens> GenerateTokensAsync(KciUser user)
     {
-        var accessToken = GenerateAccessToken(user);
+        // Load user with Region to enrich JWT with friendly region info
+        var dbUser = await _context.KciUsers
+            .Include(u => u.Region)
+            .FirstOrDefaultAsync(u => u.Id == user.Id);
+
+        var effectiveUser = dbUser ?? user;
+
+        var accessToken = GenerateAccessToken(effectiveUser);
         var refreshToken = await GenerateAndStoreRefreshTokenAsync(user.Id);
 
         return new AuthTokens { AccessToken = accessToken, RefreshToken = refreshToken };
@@ -41,6 +49,9 @@ public class JwtService : IJwtService
             new Claim("firstname", user.FirstName ?? ""),
             new Claim("lastname", user.LastName ?? ""),
             new Claim("regionId", user.RegionId.ToString() ?? ""),
+            // Friendly region data to avoid extra roundtrips on client
+            new Claim("regionTitle", user.Region?.Title ?? string.Empty),
+            new Claim("regionName", user.Region?.Name ?? string.Empty),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.Role, "User") 
         };

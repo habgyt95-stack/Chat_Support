@@ -8,6 +8,85 @@
 
 ---
 
+## 🔧 رفع مشکل 405 Method Not Allowed در سرور آنلاین (23 اکتبر 2025)
+
+### مشکل
+سه endpoint حذف (DELETE) در سرور آنلاین با خطای **405 Method Not Allowed** مواجه بودند:
+- `DELETE /api/chat/messages/{messageId}` - حذف پیام
+- `DELETE /api/chat/rooms/{roomId}/members/{userId}` - حذف عضو گروه
+- `DELETE /api/chat/rooms/{roomId}` - حذف کامل گروه
+
+این مشکل در محیط development و localhost وجود نداشت.
+
+### علت
+IIS در سرور production به صورت پیش‌فرض **WebDAV Module** را فعال دارد که با HTTP verb های DELETE و PUT تداخل دارد و آن‌ها را مسدود می‌کند.
+
+### راه‌حل
+
+#### 1. به‌روزرسانی `web.config`
+فایل `src/Web/web.config` بهبود یافت و شامل تنظیمات زیر شد:
+- حذف WebDAV Module در سطح Global و Location
+- حذف WebDAV Handler
+- اجازه صریح به DELETE verb در requestFiltering
+- فعال‌سازی allowUnlisted برای HTTP Verbs
+
+#### 2. ایجاد اسکریپت‌های کمکی
+
+**فایل‌های جدید ایجاد شده**:
+
+📄 **`IIS_DELETE_METHOD_FIX.md`**: مستندات کامل troubleshooting و راهنمای دستی تنظیم IIS
+
+📄 **`Fix-IIS-DELETE-Method.ps1`**: اسکریپت PowerShell خودکار برای:
+- حذف WebDAV Module و Handler از IIS
+- فعال‌سازی DELETE verb
+- Restart خودکار Application Pools
+- چک کردن و حذف WebDAV Feature از Windows
+
+📄 **`Test-DELETE-Endpoints.ps1`**: اسکریپت تست خودکار تمام DELETE endpoints با:
+- تست OPTIONS method
+- تست DELETE method
+- تشخیص دقیق نوع خطا (405, 404, 401, 403)
+- گزارش جامع نتایج
+
+📄 **`QUICK_FIX_GUIDE.md`**: راهنمای سریع گام‌به‌گام برای:
+- Deploy کردن web.config جدید
+- اجرای اسکریپت در سرور
+- تست و troubleshooting
+- Checklist نهایی
+
+### دستورالعمل استفاده
+
+#### مرحله 1: Deploy web.config
+```bash
+cd d:\Projects\SupportChat\Chat_Support\src\Web
+dotnet publish -c Release
+# فایل web.config را به سرور منتقل کنید
+```
+
+#### مرحله 2: اجرا در سرور (به عنوان Administrator)
+```powershell
+.\Fix-IIS-DELETE-Method.ps1
+```
+
+#### مرحله 3: تست
+```powershell
+.\Test-DELETE-Endpoints.ps1 -BaseUrl "https://chat.abrik.cloud" -Token "YOUR_JWT_TOKEN"
+```
+
+### فایل‌های تغییر یافته
+- `src/Web/web.config` (بهبود یافته)
+- `IIS_DELETE_METHOD_FIX.md` (جدید)
+- `Fix-IIS-DELETE-Method.ps1` (جدید)
+- `Test-DELETE-Endpoints.ps1` (جدید)
+- `QUICK_FIX_GUIDE.md` (جدید)
+
+### وضعیت
+✅ **حل شد** - با اعمال تنظیمات بالا، تمام DELETE endpoints در سرور production کار خواهند کرد.
+
+**نکته مهم**: این مشکل فقط در IIS رخ می‌دهد و در Kestrel (development) وجود ندارد.
+
+---
+
 ## ✅ مشکلات چت که برطرف شدند
 
 ### 1. امکان ویرایش نام گروه و توضیحات ✔️

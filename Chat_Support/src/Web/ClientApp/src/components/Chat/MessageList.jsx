@@ -1,12 +1,15 @@
-import React, { useRef, useEffect, useCallback, useLayoutEffect } from 'react';
+import React, { useRef, useEffect, useCallback, useLayoutEffect, useState } from 'react';
 import {Spinner, Button} from 'react-bootstrap';
 import MessageItem from './MessageItem';
 import './Chat.css';
 
-const MessageList = ({messages, isLoading, hasMoreMessages, onLoadMoreMessages, isGroupChat = false, roomId}) => {
+const MessageList = ({messages, isLoading, hasMoreMessages, onLoadMoreMessages, isGroupChat = false, roomId, jumpToMessageId}) => {
   const listRef = useRef(null);
   const hasInitializedRef = useRef(false);
   const lastMessageIdRef = useRef(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [copyHint, setCopyHint] = useState('');
   // track if user scrolled up (not used for now) - removed state to satisfy linter
 
   const scrollToBottom = useCallback((smooth = false) => {
@@ -77,6 +80,22 @@ const MessageList = ({messages, isLoading, hasMoreMessages, onLoadMoreMessages, 
       }, 50);
     }
   }, [roomId, messages]);
+
+  // Jump to a specific message if requested
+  useEffect(() => {
+    if (!jumpToMessageId) return;
+    const el = listRef.current;
+    if (!el) return;
+    // Find the message node by data attribute
+    const target = el.querySelector(`[data-message-id="${jumpToMessageId}"]`);
+    if (target) {
+      const top = target.offsetTop - 60; // adjust for header
+      el.scrollTo({ top: top < 0 ? 0 : top, behavior: 'smooth' });
+      // Optional: add a temporary highlight
+      target.classList.add('message-jump-highlight');
+      setTimeout(() => target.classList.remove('message-jump-highlight'), 1500);
+    }
+  }, [jumpToMessageId, messages, roomId]);
 
   // Mobile keyboard handling: در هنگام باز/بسته شدن کیبورد از پرش معکوس جلوگیری کن
   useEffect(() => {
@@ -162,14 +181,103 @@ const MessageList = ({messages, isLoading, hasMoreMessages, onLoadMoreMessages, 
               <span className="message-date-header-badge">{formatDateHeader(message.timestamp)}</span>
             </div>
           )}
-          <MessageItem message={message} isGroupChat={isGroupChat} />
+          <MessageItem
+            message={message}
+            isGroupChat={isGroupChat}
+            selectionMode={selectionMode}
+            selected={selectedIds.has(message.id)}
+            onToggleSelect={(id) => {
+              setSelectedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id); else next.add(id);
+                // if all deselected, exit selection mode
+                if (next.size === 0) setSelectionMode(false);
+                return next;
+              });
+            }}
+            onRequestEnterSelection={(firstId) => {
+              setSelectionMode(true);
+              setSelectedIds(new Set([firstId]));
+            }}
+          />
         </React.Fragment>
       );
     });
   };
 
+  const formatForCopy = useCallback((msg) => {
+    let text = '';
+    switch (msg.type) {
+      case 0:
+        text = msg.content || '';
+        break;
+      case 1:
+        text = msg.content || '📷 عکس';
+        break;
+      case 2:
+        text = msg.content || '📎 فایل';
+        break;
+      case 3:
+        text = '🎙️ پیام صوتی';
+        break;
+      case 4:
+        text = msg.content || '🎥 ویدیو';
+        break;
+      default:
+        text = msg.content || '';
+    }
+    if (isGroupChat && msg.senderFullName) {
+      return `${msg.senderFullName}: ${text}`;
+    }
+    return text;
+  }, [isGroupChat]);
+
+  const handleCopySelected = useCallback(async () => {
+    const toCopy = messages
+      .filter(m => selectedIds.has(m.id))
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      .map(formatForCopy)
+      .join('\n');
+    if (!toCopy) return;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(toCopy);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = toCopy;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setCopyHint('کپی شد');
+      setTimeout(() => setCopyHint(''), 1500);
+    } catch {
+      setCopyHint('خطا در کپی');
+      setTimeout(() => setCopyHint(''), 1500);
+    }
+  }, [messages, selectedIds, formatForCopy]);
+
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
   return (
     <div ref={listRef} className="message-list-container hide-scrollbar p-2" onScroll={handleScroll}>
+      {selectionMode && (
+        <div className="selection-toolbar">
+          <div className="selection-toolbar-content">
+            <div className="selection-count">{selectedIds.size} مورد انتخاب شد</div>
+            <div className="selection-actions">
+              <button className="btn btn-sm btn-primary" onClick={handleCopySelected} disabled={selectedIds.size === 0}>کپی</button>
+              <button className="btn btn-sm btn-light" onClick={exitSelection}>لغو</button>
+            </div>
+          </div>
+          {copyHint && <div className="selection-hint">{copyHint}</div>}
+        </div>
+      )}
       {isLoading && messages.length === 0 ? (
         <div className="flex-grow-1 d-flex align-items-center justify-content-center">
           <Spinner animation="border" />

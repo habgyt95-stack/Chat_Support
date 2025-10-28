@@ -10,7 +10,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* BrowserRouter از اینجا حذف شد */}
-      <AppRouter />
+  <AppRouter />
     </QueryClientProvider>
   );
 }

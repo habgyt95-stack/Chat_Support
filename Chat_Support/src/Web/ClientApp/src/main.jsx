@@ -7,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom'; // این خط را اضافه
 import App from './App.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
 import './index.css';
+import { register as registerServiceWorker } from './serviceWorkerRegistration.js';
 
 const root = createRoot(document.getElementById('root'));
 
@@ -19,3 +20,8 @@ root.render(
     </BrowserRouter>
   </StrictMode>,
 );
+
+// Register service worker in production builds to enable PWA
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  registerServiceWorker();
+}

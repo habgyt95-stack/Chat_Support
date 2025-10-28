@@ -1,0 +1,572 @@
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  import React, { useState, useEffect, useCallback } from "react";
+  import {
+    Container,
+    Row,
+    Col,
+    Card,
+    Button,
+    Form,
+    Badge,
+    Spinner,
+    Alert,
+    Pagination,
+    InputGroup,
+    ListGroup,
+  } from "react-bootstrap";
+  import {
+    Search,
+    Filter,
+    Calendar,
+    People,
+    ChatDots,
+    Activity,
+    Download,
+    PersonCircle,
+  } from "react-bootstrap-icons";
+  import { adminChatApi } from "../../services/adminChatApi";
+  import AdminChatFilters from "./AdminChatFilters";
+  import "./AdminChatDashboard.css";
+  0: { text: "خصوصی", variant: "primary" },
+  const AdminChatDashboard = () => {
+    // States
+    const [chats, setChats] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [showFilters, setShowFilters] = useState(false);
+
+    // Selection states for 3-panel layout
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [selectedChat, setSelectedChat] = useState(null);
+    const [chatMessages, setChatMessages] = useState([]);
+    const [messagesLoading, setMessagesLoading] = useState(false);
+
+    // Pagination
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize] = useState(50); // بیشتر کنیم برای گروه‌بندی بهتر
+    const [totalPages, setTotalPages] = useState(0);
+    const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+    // Initial load
+    useEffect(() => {
+      loadChats();
+    }, [loadChats]);
+    minMessagesCount: null,
+    // گروه‌بندی چت‌ها بر اساس کاربران
+    const groupChatsByUsers = useCallback(() => {
+      const userChatsMap = new Map();
+
+      chats.forEach((chat) => {
+        if (chat.members && chat.members.length > 0) {
+          chat.members.forEach((member) => {
+            if (!userChatsMap.has(member.userId)) {
+              userChatsMap.set(member.userId, {
+                userId: member.userId,
+                fullName: member.fullName,
+                phoneNumber: member.phoneNumber,
+                avatar: member.avatar,
+                chats: [],
+              });
+            }
+            userChatsMap.get(member.userId).chats.push(chat);
+          });
+        }
+      });
+
+      // تبدیل Map به آرایه و مرتب‌سازی بر اساس تعداد چت‌ها
+      return Array.from(userChatsMap.values()).sort(
+        (a, b) => b.chats.length - a.chats.length
+      );
+    }, [chats]);
+
+    const users = groupChatsByUsers();
+
+    // انتخاب کاربر
+    const handleUserSelect = (user) => {
+      setSelectedUser(user);
+      setSelectedChat(null);
+      setChatMessages([]);
+    };
+
+    // انتخاب چت و بارگذاری پیام‌ها
+    const handleChatSelect = async (chat) => {
+      setSelectedChat(chat);
+      setMessagesLoading(true);
+
+      try {
+        const response = await adminChatApi.getChatMessages(chat.id, {
+          pageNumber: 1,
+          pageSize: 100,
+        });
+        setChatMessages(response.items || []);
+      } catch (err) {
+        console.error("Error loading messages:", err);
+        setError("خطا در بارگذاری پیام‌ها");
+      } finally {
+        setMessagesLoading(false);
+      }
+    };
+  });
+      return (
+        <div className="d-flex justify-content-between align-items-center mt-3">
+          <div className="text-muted small">
+            نمایش {users.length} کاربر از {totalCount} چت
+          </div>
+          <Pagination size="sm">
+    setLoading(true);
+    return (
+      <Container fluid className="admin-chat-dashboard-v2 py-4">
+    try {
+        {/* 3-Panel Layout */}
+        <Row className="three-panel-layout">
+          {/* Panel 1: لیست کاربران */}
+          <Col lg={3} md={4} className="mb-3">
+            <Card className="h-100 users-panel">
+              <Card.Header className="bg-primary text-white">
+                <People className="me-2" />
+                کاربران ({users.length})
+              </Card.Header>
+              <Card.Body className="p-0">
+                {loading ? (
+                  <div className="text-center py-5">
+                    <Spinner animation="border" variant="primary" size="sm" />
+                    <p className="mt-2 small text-muted">در حال بارگذاری...</p>
+                  </div>
+                ) : users.length === 0 ? (
+                  <div className="text-center py-5">
+                    <PersonCircle size={48} className="text-muted mb-2" />
+                    <p className="text-muted small">کاربری یافت نشد</p>
+                  </div>
+                ) : (
+                  <ListGroup variant="flush" className="users-list">
+                    {users.map((user) => (
+                      <ListGroup.Item
+                        key={user.userId}
+                        action
+                        active={selectedUser?.userId === user.userId}
+                        onClick={() => handleUserSelect(user)}
+                        className="user-item"
+                      >
+                        <div className="d-flex align-items-center">
+                          <div
+                            className="avatar-circle me-2"
+                            style={{
+                              width: "40px",
+                              height: "40px",
+                              backgroundColor: "#007bff",
+                              color: "white",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              borderRadius: "50%",
+                              fontSize: "16px",
+                              fontWeight: "bold",
+                            }}
+                          >
+                            {user.fullName?.charAt(0)?.toUpperCase() || "؟"}
+                          </div>
+                          <div className="flex-grow-1">
+                            <div className="fw-bold">{user.fullName}</div>
+                            {user.phoneNumber && (
+                              <small className="text-muted d-block" dir="ltr">
+                                {user.phoneNumber}
+                              </small>
+                            )}
+                            <Badge bg="info" className="mt-1">
+                              {user.chats.length} چت
+                            </Badge>
+                          </div>
+                        </div>
+                      </ListGroup.Item>
+                    ))}
+                  </ListGroup>
+                )}
+                {renderPagination()}
+              </Card.Body>
+            </Card>
+          </Col>
+
+          {/* Panel 2: لیست چت‌های کاربر انتخابی */}
+          <Col lg={4} md={4} className="mb-3">
+            <Card className="h-100 chats-panel">
+              <Card.Header className="bg-success text-white">
+                <ChatDots className="me-2" />
+                چت‌های {selectedUser ? selectedUser.fullName : "..."}
+              </Card.Header>
+              <Card.Body className="p-0">
+                {!selectedUser ? (
+                  <div className="text-center py-5">
+                    <ChatDots size={48} className="text-muted mb-2" />
+                    <p className="text-muted small">یک کاربر را انتخاب کنید</p>
+                  </div>
+                ) : (
+                  <ListGroup variant="flush" className="chats-list">
+                    {selectedUser.chats.map((chat) => (
+                      <ListGroup.Item
+                        key={chat.id}
+                        action
+                        active={selectedChat?.id === chat.id}
+                        onClick={() => handleChatSelect(chat)}
+                        className="chat-item"
+                      >
+                        <div className="d-flex align-items-start">
+                          <div className="flex-grow-1">
+                            <div className="d-flex justify-content-between align-items-start mb-1">
+                              <span className="fw-bold">{chat.name}</span>
+                              <Badge
+                                bg={
+                                  ChatRoomTypeLabels[chat.chatRoomType]
+                                    ?.variant || "secondary"
+                                }
+                              >
+                                {ChatRoomTypeLabels[chat.chatRoomType]?.text ||
+                                  "نامشخص"}
+                              </Badge>
+                            </div>
+                            {chat.description && (
+                              <p className="mb-1 small text-muted">
+                                {chat.description.length > 50
+                                  ? chat.description.substring(0, 50) + "..."
+                                  : chat.description}
+                              </p>
+                            )}
+                            <div className="d-flex gap-2 small text-muted">
+                              <span>
+                                <People size={12} /> {chat.membersCount}
+                              </span>
+                              <span>
+                                <ChatDots size={12} /> {chat.totalMessagesCount}
+                              </span>
+                            </div>
+                            {chat.lastMessageContent && (
+                              <div className="mt-1 small text-muted fst-italic">
+                                "{chat.lastMessageContent.substring(0, 40)}..."
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </ListGroup.Item>
+                    ))}
+                  </ListGroup>
+                )}
+              </Card.Body>
+            </Card>
+          </Col>
+
+          {/* Panel 3: پیام‌های چت انتخابی */}
+          <Col lg={5} md={4} className="mb-3">
+            <Card className="h-100 messages-panel">
+              <Card.Header className="bg-info text-white">
+                <ChatDots className="me-2" />
+                پیام‌های {selectedChat ? selectedChat.name : "..."}
+              </Card.Header>
+              <Card.Body className="p-0">
+                {!selectedChat ? (
+                  <div className="text-center py-5">
+                    <ChatDots size={48} className="text-muted mb-2" />
+                    <p className="text-muted small">یک چت را انتخاب کنید</p>
+                  </div>
+                ) : messagesLoading ? (
+                  <div className="text-center py-5">
+                    <Spinner animation="border" variant="info" size="sm" />
+                    <p className="mt-2 small text-muted">
+                      در حال بارگذاری پیام‌ها...
+                    </p>
+                  </div>
+                ) : chatMessages.length === 0 ? (
+                  <div className="text-center py-5">
+                    <ChatDots size={48} className="text-muted mb-2" />
+                    <p className="text-muted small">پیامی یافت نشد</p>
+                  </div>
+                ) : (
+                  <div className="messages-container p-3">
+                    {chatMessages.map((message) => (
+                      <div key={message.id} className="message-item-wrapper mb-3">
+                        <div className="d-flex align-items-start">
+                          <div
+                            className="avatar-small me-2"
+                            style={{
+                              width: "32px",
+                              height: "32px",
+                              backgroundColor: "#6c757d",
+                              color: "white",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              borderRadius: "50%",
+                              fontSize: "12px",
+                            }}
+                          >
+                            {message.senderName?.charAt(0)?.toUpperCase() || "؟"}
+                          </div>
+                          <div className="flex-grow-1">
+                            <div className="d-flex justify-content-between align-items-center mb-1">
+                              <strong className="small">
+                                {message.senderName || "ناشناس"}
+                              </strong>
+                              <small className="text-muted">
+                                {formatDate(message.createdAt)}
+                              </small>
+                            </div>
+                            <div className="message-content p-2 bg-light rounded">
+                              {message.content}
+                            </div>
+                            {message.isEdited && (
+                              <small className="text-muted fst-italic">
+                                (ویرایش شده)
+                              </small>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+          />
+        </Pagination>
+      </div>
+    );
+  };
+
+  return (
+    <Container fluid className="admin-chat-dashboard py-4">
+      <Row className="mb-4">
+        <Col>
+          <h2 className="mb-0">
+            <Activity className="me-2" />
+            داشبورد مدیریت چت‌ها
+          </h2>
+          <p className="text-muted">مشاهده و مدیریت تمام چت‌های سیستم</p>
+        </Col>
+      </Row>
+
+
+      {/* Search and Filters */}
+      <Card className="mb-4">
+        <Card.Body>
+          <Row className="align-items-end">
+            <Col md={6} lg={8} className="mb-3 mb-md-0">
+              <InputGroup>
+                <InputGroup.Text>
+                  <Search />
+                </InputGroup.Text>
+                <Form.Control
+                  type="text"
+                  placeholder="جستجو در نام چت، توضیحات، شماره موبایل اعضا..."
+                  value={searchInput}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                />
+              </InputGroup>
+            </Col>
+            <Col md={6} lg={4}>
+              <div className="d-flex gap-2">
+                <Button
+                  variant="outline-primary"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex-grow-1"
+                >
+                  <Filter className="me-2" />
+                  فیلترها {showFilters ? "▲" : "▼"}
+                </Button>
+                <Button
+                  variant="outline-secondary"
+                  onClick={handleExportCSV}
+                  title="خروجی CSV"
+                >
+                  <Download />
+                </Button>
+                <Button
+                  variant="outline-danger"
+                  onClick={handleClearFilters}
+                  title="پاک کردن فیلترها"
+                >
+                  ✕
+                </Button>
+              </div>
+            </Col>
+          </Row>
+
+          {/* Advanced Filters */}
+          {showFilters && (
+            <AdminChatFilters
+              filters={filters}
+              onFilterChange={handleFilterChange}
+            />
+          )}
+        </Card.Body>
+      </Card>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="danger" onClose={() => setError(null)} dismissible>
+          {error}
+        </Alert>
+      )}
+
+      {/* Chats Table */}
+      <Card>
+        <Card.Body className="p-0">
+          {loading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" />
+              <p className="mt-3 text-muted">در حال بارگذاری...</p>
+            </div>
+          ) : chats.length === 0 ? (
+            <div className="text-center py-5">
+              <ChatDots size={48} className="text-muted mb-3" />
+              <p className="text-muted">چتی یافت نشد</p>
+            </div>
+          ) : (
+            <>
+              <div className="table-responsive">
+                <Table hover className="mb-0 admin-chats-table">
+                  <thead className="bg-light">
+                    <tr>
+                      <th style={{ width: "5%" }}>شناسه</th>
+                      <th style={{ width: "20%" }}>نام چت</th>
+                      <th style={{ width: "10%" }}>نوع</th>
+                      <th style={{ width: "10%" }}>ناحیه</th>
+                      <th style={{ width: "8%" }}>
+                        <People className="me-1" />
+                        اعضا
+                      </th>
+                      <th style={{ width: "8%" }}>
+                        <ChatDots className="me-1" />
+                        پیام‌ها
+                      </th>
+                      <th style={{ width: "15%" }}>آخرین فعالیت</th>
+                      <th style={{ width: "12%" }}>تاریخ ایجاد</th>
+                      <th style={{ width: "12%" }}>عملیات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chats.map((chat) => (
+                      <tr key={chat.id}>
+                        <td>
+                          <code>#{chat.id}</code>
+                        </td>
+                        <td>
+                          <div className="d-flex align-items-center">
+                            <div
+                              className={`avatar-placeholder ${
+                                chat.isGroup ? "bg-success" : "bg-primary"
+                              } me-2`}
+                              style={{
+                                width: "32px",
+                                height: "32px",
+                                fontSize: "14px",
+                              }}
+                            >
+                              {chat.isGroup ? (
+                                <People size={16} />
+                              ) : (
+                                chat.name?.charAt(0)?.toUpperCase()
+                              )}
+                            </div>
+                            <div>
+                              <div className="fw-bold">{chat.name}</div>
+                              {chat.description && (
+                                <small className="text-muted">
+                                  {chat.description.length > 30
+                                    ? chat.description.substring(0, 30) + "..."
+                                    : chat.description}
+                                </small>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <Badge
+                            bg={
+                              ChatRoomTypeLabels[chat.chatRoomType]?.variant ||
+                              "secondary"
+                            }
+                          >
+                            {ChatRoomTypeLabels[chat.chatRoomType]?.text ||
+                              "نامشخص"}
+                          </Badge>
+                        </td>
+                        <td>
+                          <small className="text-muted">
+                            {chat.regionName || "-"}
+                          </small>
+                        </td>
+                        <td>
+                          <Badge bg="info">{chat.membersCount}</Badge>
+                        </td>
+                        <td>
+                          <Badge bg="secondary">
+                            {chat.totalMessagesCount}
+                          </Badge>
+                        </td>
+                        <td>
+                          <small>
+                            {chat.lastMessageTime
+                              ? formatDate(chat.lastMessageTime)
+                              : "-"}
+                          </small>
+                          {chat.lastMessageContent && (
+                            <div
+                              className="text-muted"
+                              style={{
+                                fontSize: "0.75rem",
+                                maxWidth: "150px",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {chat.lastMessageContent}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <small>{formatDate(chat.createdAt)}</small>
+                          {chat.createdByName && (
+                            <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                              {chat.createdByName}
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <Button
+                            variant="outline-primary"
+                            size="sm"
+                            onClick={() => handleViewMessages(chat)}
+                          >
+                            <Eye className="me-1" size={16} />
+                            مشاهده
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+              {renderPagination()}
+            </>
+          )}
+        </Card.Body>
+      </Card>
+
+      {/* Messages Modal */}
+      {selectedChat && (
+        <ChatMessagesModal
+          show={showMessagesModal}
+          onHide={() => {
+            setShowMessagesModal(false);
+            setSelectedChat(null);
+          }}
+          chatRoom={selectedChat}
+        />
+      )}
+    </Container>
+  );
+};
+
+export default AdminChatDashboard;

@@ -1,0 +1,91 @@
+/* ChatMessagesModal.css */
+
+.chat-messages-modal .modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.messages-list {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.message-item {
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.message-item:hover {
+  border-left-color: var(--bs-primary);
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+.message-header {
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.message-content {
+  padding: 0.5rem 0;
+  word-wrap: break-word;
+}
+
+.message-text {
+  line-height: 1.6;
+}
+
+.message-footer {
+  font-size: 0.85rem;
+}
+
+.reactions .reaction {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.reply-to-card {
+  font-size: 0.85rem;
+  border-radius: 0.25rem;
+}
+
+.read-statuses {
+  padding-top: 0.5rem;
+  border-top: 1px dashed #e9ecef;
+}
+
+/* Scrollbar Styling */
+.messages-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.messages-list::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.messages-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .chat-messages-modal .modal-body {
+    max-height: 60vh;
+  }
+
+  .messages-list {
+    max-height: 50vh;
+  }
+
+  .message-item {
+    font-size: 0.9rem;
+  }
+}

@@ -16,7 +16,7 @@ public class AuthEndpoints : EndpointGroupBase
     {
         var group = app.MapGroup("/api/auth");
         group.MapGet("/verify-token", VerifyToken);
-        group.MapGet("/profile", GetProfile).RequireAuthorization();
+    group.MapGet("/profile", GetProfile).RequireAuthorization();
         group.MapPost("/request-otp", RequestOtp).AllowAnonymous(); 
         group.MapPost("/verify-otp", VerifyOtp).AllowAnonymous(); 
         group.MapPost("/login", AbrikChatLogin).AllowAnonymous();
@@ -57,7 +57,7 @@ public class AuthEndpoints : EndpointGroupBase
         return loginResult;
     }
 
-    public IResult VerifyToken([FromQuery] string token, HttpContext httpContext)
+    public async Task<IResult> VerifyToken([FromQuery] string token, HttpContext httpContext, IApplicationDbContext db)
     {
         var user = httpContext.User;
         if (user.Identity is { IsAuthenticated: false })
@@ -68,22 +68,42 @@ public class AuthEndpoints : EndpointGroupBase
         // Prefer NameIdentifier (numeric user id) to align with chat SenderId; fallback to 'sub'
         var id = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub")!;
 
+        string? regionName = null;
+        string? regionTitle = null;
+        if (int.TryParse(id, out var uid))
+        {
+            var dbUser = await db.KciUsers.Include(u => u.Region).FirstOrDefaultAsync(u => u.Id == uid);
+            regionName = dbUser?.Region?.Name;
+            regionTitle = dbUser?.Region?.Title;
+        }
+
         var profile = new UserProfileDto
         {
             Id = id,
             Username = user.FindFirstValue(ClaimTypes.Name)!,
             FirstName = user.FindFirstValue("firstname")!,
             LastName = user.FindFirstValue("lastname")!,
-            RegionId = user.FindFirstValue("regionId")!
+            RegionId = user.FindFirstValue("regionId")!,
+            RegionName = regionName ?? user.FindFirstValue("regionName"),
+            RegionTitle = regionTitle ?? user.FindFirstValue("regionTitle")
         };
 
         return Results.Ok(new { Token = token, Profile = profile });
     }
 
-    public IResult GetProfile(ClaimsPrincipal user)
+    public async Task<IResult> GetProfile(ClaimsPrincipal user, IApplicationDbContext db)
     {
         // Prefer NameIdentifier (numeric user id) to align with chat SenderId; fallback to 'sub'
         var id = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub")!;
+
+        string? regionName = null;
+        string? regionTitle = null;
+        if (int.TryParse(id, out var uid))
+        {
+            var dbUser = await db.KciUsers.Include(u => u.Region).FirstOrDefaultAsync(u => u.Id == uid);
+            regionName = dbUser?.Region?.Name;
+            regionTitle = dbUser?.Region?.Title;
+        }
 
         var profile = new UserProfileDto
         {
@@ -91,7 +111,9 @@ public class AuthEndpoints : EndpointGroupBase
             Username = user.FindFirstValue(ClaimTypes.Name)!,
             FirstName = user.FindFirstValue("firstname")!,
             LastName = user.FindFirstValue("lastname")!,
-            RegionId = user.FindFirstValue("regionId")!
+            RegionId = user.FindFirstValue("regionId")!,
+            RegionName = regionName ?? user.FindFirstValue("regionName"),
+            RegionTitle = regionTitle ?? user.FindFirstValue("regionTitle")
         };
 
         return Results.Ok(profile);
@@ -363,6 +385,8 @@ public class UserProfileDto
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? RegionId { get; set; }
+    public string? RegionName { get; set; }
+    public string? RegionTitle { get; set; }
 }
 
 public sealed class AbrikChatLoginRequest

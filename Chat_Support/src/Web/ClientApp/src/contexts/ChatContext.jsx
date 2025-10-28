@@ -872,6 +872,11 @@ export const ChatProvider = ({ children }) => {
     }, []),
     clearError: () => dispatch({ type: ActionTypes.SET_ERROR, payload: null }),
     createChatRoom,
+    // Allow setting messages directly (used for jump-to-message context loads)
+    setMessagesForRoom: useCallback((roomId, messages) => {
+      if (!roomId || !Array.isArray(messages)) return;
+      dispatch({ type: ActionTypes.SET_MESSAGES, payload: { roomId, messages } });
+    }, []),
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

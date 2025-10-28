@@ -49,13 +49,15 @@
     <Content Include="abrikChat.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="wwwroot\**\*" CopyToOutputDirectory="Never" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Don't publish the SPA source files, but do show them in the project files list -->
+    <Compile Remove="uploads\**" />
     <Content Remove="$(SpaRoot)**" />
+    <EmbeddedResource Remove="uploads\**" />
     <None Remove="$(SpaRoot)**" />
+    <None Remove="uploads\**" />
     <None Include="$(SpaRoot)**" Exclude="$(SpaRoot)node_modules\**" />
   </ItemGroup>
 
@@ -68,7 +70,8 @@
     <Folder Include="wwwroot\uploads\" />
     <Folder Include="wwwroot\uploads\" />
     <Folder Include="wwwroot\uploads\" />
-    <Folder Include="wwwroot\NewFolder\" />
+    <Folder Include="wwwroot\uploads\" />
+    <Folder Include="wwwroot\uploads\" />
   </ItemGroup>
 
   <Target Name="DebugEnsureNodeEnv" BeforeTargets="Build" Condition=" '$(Configuration)' == 'Debug' And !Exists('$(SpaRoot)node_modules') ">

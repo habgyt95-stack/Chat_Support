@@ -117,6 +117,14 @@ export const chatApi = {
     return response.data;
   },
 
+  // Global search across users and messages
+  searchAll: async (query) => {
+    const response = await apiClient.get(`${CHAT_BASE_URL}/search`, {
+      params: { query },
+    });
+    return response.data;
+  },
+
   // Get chat room members
   getChatRoomMembers: async (roomId) => {
     const response = await apiClient.get(
@@ -203,6 +211,15 @@ export const chatApi = {
       `${CHAT_BASE_URL}/messages/${messageId}/read-receipts`
     );
     return response.data;
+  },
+
+  // Get context (messages before/after) around a specific message for precise jump navigation
+  getMessageContext: async (messageId, before = 15, after = 15) => {
+    const response = await apiClient.get(
+      `${CHAT_BASE_URL}/messages/${messageId}/context`,
+      { params: { before, after } }
+    );
+    return response.data; // { chatRoomId, messages, targetMessageId }
   },
 
   // Support API

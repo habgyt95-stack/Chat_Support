@@ -1,0 +1,261 @@
+/* AdminMessageList.css - Modern Professional Design */
+
+.admin-message-list-container {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1.25rem;
+  direction: rtl;
+  background: linear-gradient(to bottom, var(--gray-50) 0%, white 10%);
+}
+
+.admin-messages-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ==================== Date Header ==================== */
+.admin-message-date-header {
+  text-align: center;
+  margin: 1.5rem 0;
+  position: relative;
+}
+
+.admin-message-date-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--gray-200) 20%, var(--gray-200) 80%, transparent 100%);
+  z-index: 0;
+}
+
+.admin-message-date-badge {
+  background: linear-gradient(135deg, white 0%, var(--gray-50) 100%);
+  padding: 0.35rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  color: var(--gray-600);
+  font-weight: 600;
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+}
+
+/* ==================== Message Item ==================== */
+.admin-message-item {
+  background: white;
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  max-width: 75%;
+  align-self: flex-start;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--gray-200);
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.admin-message-item::before {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 0;
+  background: var(--primary-600);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: height var(--transition-fast);
+}
+
+.admin-message-item:hover { box-shadow: var(--shadow-md); transform: translateX(-2px); }
+.admin-message-item:hover::before { height: 60%; }
+
+.admin-message-content { display: flex; flex-direction: column; gap: 0.625rem; }
+
+/* ==================== Message Header ==================== */
+.admin-message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.625rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.admin-message-sender-info { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.admin-message-sender {
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+}
+
+.admin-message-edited,
+.admin-message-deleted {
+  font-size: 0.7rem;
+  color: var(--gray-600);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  background: var(--gray-100);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+.admin-message-edited svg,
+.admin-message-deleted svg { width: 12px; height: 12px; }
+
+.admin-message-deleted { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+
+.admin-message-time {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  direction: ltr;
+  white-space: nowrap;
+  font-weight: 500;
+  padding: 0.15rem 0.4rem;
+  background: var(--gray-50);
+  border-radius: var(--radius-sm);
+}
+
+/* ==================== Reply Info ==================== */
+.admin-message-reply-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.04) 100%);
+  padding: 0.625rem;
+  border-radius: var(--radius-sm);
+  border-right: 3px solid var(--primary-600);
+  font-size: 0.8rem;
+  color: var(--gray-700);
+  margin-bottom: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-message-reply-info::before {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; width: 100%; height: 100%;
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.05) 0%, transparent 30%);
+  pointer-events: none;
+}
+
+.admin-message-reply-info svg { flex-shrink: 0; color: var(--primary-600); margin-top: 2px; }
+.reply-to-text { font-weight: 600; margin-left: 0.25rem; color: var(--primary-700); }
+.reply-content { font-style: italic; color: var(--gray-600); margin-top: 0.15rem; display: block; word-break: break-word; }
+
+/* ==================== Message Type ==================== */
+.admin-message-type {
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  font-style: italic;
+  font-weight: 500;
+  background: var(--gray-50);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+}
+
+/* ==================== Message Text ==================== */
+.admin-message-text { color: var(--gray-900); font-size: 0.9375rem; line-height: 1.7; word-wrap: break-word; white-space: pre-wrap; font-weight: 400; letter-spacing: 0.01em; }
+.admin-message-text.deleted-text { color: var(--gray-500); font-style: italic; opacity: 0.8; }
+
+/* ==================== Attachment ==================== */
+.admin-message-attachment { margin-top: 0.625rem; }
+
+.admin-message-attachment a {
+  color: var(--primary-700);
+  text-decoration: none;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(59, 130, 246, 0.04) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  font-weight: 500;
+}
+
+.admin-message-attachment a:hover { background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.08) 100%); border-color: rgba(59, 130, 246, 0.4); transform: translateY(-1px); box-shadow: var(--shadow-sm); text-decoration: none; }
+
+/* ==================== Message Footer ==================== */
+.admin-message-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 0.625rem; gap: 0.625rem; padding-top: 0.5rem; border-top: 1px solid var(--gray-100); }
+
+/* ==================== Reactions ==================== */
+.admin-message-reactions { display: flex; flex-wrap: wrap; gap: 0.375rem; align-items: center; }
+
+.reaction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: var(--gray-100);
+  padding: 0.3rem 0.625rem;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  cursor: help;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.reaction-badge::before { content: ''; position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, transparent 100%); opacity: 0; transition: opacity var(--transition-fast); }
+.reaction-badge:hover { background: var(--primary-50); border-color: var(--primary-200); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.reaction-badge:hover::before { opacity: 1; }
+
+.reaction-emoji { font-size: 1rem; line-height: 1; }
+.reaction-count { font-size: 0.75rem; font-weight: 600; color: var(--gray-700); line-height: 1; }
+
+/* ==================== Delivery Status ==================== */
+.admin-message-status { display: flex; align-items: center; margin-right: auto; gap: 0.25rem; }
+.admin-message-status svg { color: var(--gray-400); transition: color var(--transition-fast); }
+.admin-message-status svg.text-primary { color: var(--primary-600) !important; }
+.admin-message-status svg.text-success { color: var(--success) !important; }
+
+/* ==================== Forward Info ==================== */
+.admin-message-forward-info { margin-top: 0.375rem; }
+.forward-badge { font-size: 0.7rem; padding: 0.25rem 0.5rem; background: linear-gradient(135deg, var(--primary-50) 0%, var(--primary-100) 100%); color: var(--primary-700); border-radius: var(--radius-sm); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; border: 1px solid var(--primary-200); }
+
+/* ==================== Scrollbar Styling ==================== */
+.admin-message-list-container::-webkit-scrollbar { width: 8px; }
+.admin-message-list-container::-webkit-scrollbar-track { background: var(--gray-100); border-radius: var(--radius-sm); }
+.admin-message-list-container::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: var(--radius-sm); transition: background var(--transition-fast); }
+.admin-message-list-container::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+
+/* ==================== Loading & Empty States ==================== */
+.admin-message-list-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; gap: 1rem; }
+.admin-message-list-loading .spinner-border { color: var(--primary-600); }
+.admin-message-list-empty { text-align: center; padding: 3rem 1rem; color: var(--gray-500); }
+.admin-message-list-empty svg { color: var(--gray-300); margin-bottom: 1rem; }
+
+/* ==================== Responsive Design ==================== */
+@media (max-width: 768px) {
+  .admin-message-item { max-width: 90%; padding: 0.875rem; }
+  .admin-message-list-container { padding: 0.75rem; }
+  .admin-message-header { flex-direction: column; align-items: flex-start; gap: 0.375rem; }
+  .admin-message-time { font-size: 0.7rem; }
+  .admin-message-text { font-size: 0.875rem; }
+  .reaction-badge { font-size: 0.8rem; padding: 0.25rem 0.5rem; }
+  .admin-message-footer { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 576px) {
+  .admin-message-item { max-width: 95%; padding: 0.75rem; }
+  .admin-message-list-container { padding: 0.5rem; }
+}
+
+/* Dark Mode disabled: Always use light theme for admin message list */
